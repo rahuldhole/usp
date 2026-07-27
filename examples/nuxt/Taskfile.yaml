@@ -1,0 +1,11 @@
+version: '3'
+
+tasks:
+  install:
+    desc: "Install dependencies"
+    cmds:
+      - pnpm install
+  run:
+    desc: "Run Nuxt & USP server"
+    cmds:
+      - node server.js & pnpm run dev

@@ -7,6 +7,9 @@ includes:
   js:
     taskfile: ./examples/js/Taskfile.yaml
     dir: ./examples/js
+  nuxt:
+    taskfile: ./examples/nuxt/Taskfile.yaml
+    dir: ./examples/nuxt
 
 tasks:
   default:
