@@ -1,9 +1,8 @@
 import { GlobalManager } from './src/core.js';
-import { USPServer } from './src/server.js';
-import { USPClient } from './src/client.js';
 
 export const USP = {
   async initServer(options = {}) {
+    const { USPServer } = await import('./src/server.js');
     const server = new USPServer(options);
     await server.start();
     GlobalManager.init('server', server);
@@ -11,6 +10,7 @@ export const USP = {
   },
 
   async initClient(options = {}) {
+    const { USPClient } = await import('./src/client.js');
     const client = new USPClient(options);
     await client.connect();
     GlobalManager.init('client', client);
