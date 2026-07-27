@@ -1,0 +1,25 @@
+# Compiled output
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Future Prototypes (JS, Python, etc.)
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
