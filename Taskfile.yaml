@@ -4,6 +4,9 @@ includes:
   go:
     taskfile: ./prototypes/go/Taskfile.yaml
     dir: ./prototypes/go
+  js:
+    taskfile: ./prototypes/js/Taskfile.yaml
+    dir: ./prototypes/js
 
 tasks:
   default:

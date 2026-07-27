@@ -1,0 +1,11 @@
+version: '3'
+
+tasks:
+  install:
+    desc: "Install NPM dependencies"
+    cmds:
+      - npm install
+  run:
+    desc: "Run JS prototype"
+    cmds:
+      - node index.js
