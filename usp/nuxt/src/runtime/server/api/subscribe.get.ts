@@ -1,12 +1,9 @@
-/**
- * GET /api/usp/subscribe?session=xxx
- * Server→Client: SSE stream for real-time state sync
- */
-import { USP } from 'usp-js'
+import { defineEventHandler, getQuery, createError, setResponseHeaders } from 'h3'
+import { USP } from 'usp-js/server'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
-  const session = query.session as string;
+  const session = query.session ? String(query.session) : null;
 
   if (!session) {
     throw createError({ statusCode: 400, statusMessage: 'Missing session parameter' });
@@ -27,16 +24,14 @@ export default defineEventHandler(async (event) => {
   const writer = event.node.res;
 
   // SSE send helper
-  const send = (eventName: string, data: any) => {
+  const send = (eventName, data) => {
     writer.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
   // Subscribe to the session
-  const { clientId, unsubscribe } = server.subscribe(session, send, () => {});
+  const { clientId, unsubscribe } = await server.subscribe(session, send, () => {});
 
   // Include clientId in the init event so the client can exclude itself from broadcasts
-  // The init event is already sent by server.subscribe(), but we need to patch clientId in.
-  // Actually, let's send it as a separate event:
   send('init-meta', { clientId });
 
   // Keep connection alive with heartbeat

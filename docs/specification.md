@@ -14,7 +14,8 @@ By utilizing a **persistent state heap** (e.g., SQLite, Redis) alongside a **ser
 
 ```
                           ┌────────────────────────────────┐
-                          │     USP STATE HEAP (SQLite)     │
+                          │     USP STATE HEAP (Adapter)    │
+                          │   (Memory, SQLite, Redis)      │
                           │  session:todos -> { key: val } │
                           └───────────────▲────────────────┘
                                           │
@@ -29,6 +30,29 @@ By utilizing a **persistent state heap** (e.g., SQLite, Redis) alongside a **ser
 └─────────────────────────┘                              └─────────────────────────┘
 
 ```
+
+---
+
+### Swappable Storage Adapters
+
+The USP server core abstracts the state heap into swappable adapters:
+
+1. **MemoryAdapter**: In-memory `Map`-based storage for simple ephemeral setups without external dependencies.
+2. **SQLiteAdapter**: Persistent, file-based storage using `better-sqlite3`. Great for single-node deployments.
+3. **RedisAdapter**: Distributed storage using `ioredis`. Required for multi-node or serverless setups behind a load balancer.
+
+---
+
+### Framework Wrappers Strategy
+
+To minimize boilerplate, the base `usp-js` library remains framework-agnostic. Framework-specific wrappers (like `nuxt-usp`) are provided to integrate tightly with native paradigms.
+
+A Framework Wrapper should:
+1. Auto-inject the server-side API endpoints (`/api/usp/subscribe` and `/api/usp/sync`).
+2. Register the server plugin to initialize the `USPServer` with the user's chosen storage adapter.
+3. Auto-import the `useUsp` composable/hook for the client.
+
+This keeps the user's project clean and strictly configuration-driven.
 
 ---
 

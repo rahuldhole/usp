@@ -28,7 +28,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { USP } from 'usp-js/client'
 
 const localTodos = ref([]);
 const newTodo = ref('');

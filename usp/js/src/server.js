@@ -6,55 +6,35 @@
  * Designed to run inside any HTTP framework (Nitro, Express, Hono, etc.)
  * No standalone server needed — just mount the handler.
  */
-import Database from 'better-sqlite3';
+import { MemoryAdapter } from './adapters/MemoryAdapter.js';
 
 export class USPServer {
   constructor(options = {}) {
-    this.dbPath = options.dbPath || './usp-state.db';
+    this.adapter = options.adapter || new MemoryAdapter();
     this.actions = new Map();
     this.onRemoteSync = null;
     /** @type {Map<string, Set<(event: string, data: any) => void>>} */
     this.subscribers = new Map(); // session -> Set of SSE write functions
-
-    // Initialize SQLite
-    this.db = new Database(this.dbPath);
-    this.db.pragma('journal_mode = WAL');
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS usp_state (
-        session TEXT NOT NULL,
-        key     TEXT NOT NULL,
-        value   TEXT,
-        PRIMARY KEY (session, key)
-      )
-    `);
-    this._stmtSet = this.db.prepare(
-      'INSERT OR REPLACE INTO usp_state (session, key, value) VALUES (?, ?, ?)'
-    );
-    this._stmtGetAll = this.db.prepare(
-      'SELECT key, value FROM usp_state WHERE session = ?'
-    );
   }
 
   async start() {
-    console.log('[USP Server] SQLite state store ready:', this.dbPath);
+    if (this.adapter.init) {
+      await this.adapter.init();
+    }
+    console.log('[USP Server] State store ready using adapter:', this.adapter.constructor.name);
   }
 
   // ── State Operations ──────────────────────────────────────────────
 
   /** Write a key and broadcast to all SSE subscribers */
-  syncState(session, key, value) {
-    this._stmtSet.run(session, key, value);
+  async syncState(session, key, value) {
+    await this.adapter.set(session, key, value);
     this._broadcast(session, { op: 'SET', session, key, val: value });
   }
 
   /** Get all state for a session */
-  getSessionState(session) {
-    const rows = this._stmtGetAll.all(session);
-    const state = {};
-    for (const row of rows) {
-      state[row.key] = row.value;
-    }
-    return state;
+  async getSessionState(session) {
+    return await this.adapter.getSessionState(session);
   }
 
   // ── HTTP Handlers (mount these in your framework) ─────────────────
@@ -66,7 +46,7 @@ export class USPServer {
    */
   async handlePost(body) {
     if (body.op === 'SET') {
-      this._stmtSet.run(body.session, body.key, body.val);
+      await this.adapter.set(body.session, body.key, body.val);
 
       // Update local memory cache via Manager
       if (this.onRemoteSync) {
@@ -103,7 +83,7 @@ export class USPServer {
    * @param {() => void} onClose - called when connection closes  
    * @returns {{ clientId: string, unsubscribe: () => void }}
    */
-  subscribe(session, send, onClose) {
+  async subscribe(session, send, onClose) {
     const clientId = Math.random().toString(36).slice(2);
 
     if (!this.subscribers.has(session)) {
@@ -112,7 +92,7 @@ export class USPServer {
     this.subscribers.get(session).set(clientId, send);
 
     // Send initial state
-    const state = this.getSessionState(session);
+    const state = await this.getSessionState(session);
     send('init', { session, state });
 
     const unsubscribe = () => {

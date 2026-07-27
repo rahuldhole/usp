@@ -1,0 +1,13 @@
+{
+  "name": "nuxt-usp",
+  "version": "1.0.0",
+  "description": "Nuxt module for USP Protocol",
+  "type": "module",
+  "exports": {
+    ".": "./src/module.ts"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^3.12.0",
+    "usp-js": "file:../js"
+  }
+}

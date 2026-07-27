@@ -1,8 +1,5 @@
-/**
- * POST /api/usp/sync
- * Client→Server: Handle SET and EXEC operations
- */
-import { USP } from 'usp-js'
+import { defineEventHandler, readBody, createError } from 'h3'
+import { USP } from 'usp-js/server'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);

@@ -11,5 +11,12 @@ export default defineNuxtConfig({
     externals: {
       external: ['usp-js', 'better-sqlite3']
     }
+  },
+  modules: ['nuxt-usp'],
+  usp: {
+    adapter: 'sqlite',
+    sqlite: {
+      dbPath: './usp-state.db'
+    }
   }
 })
