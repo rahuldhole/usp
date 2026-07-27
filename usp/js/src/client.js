@@ -1,7 +1,7 @@
 export class USPClient {
   constructor(options = {}) {
     this.url = options.url || 'ws://localhost:4000';
-    this.session = options.session || `sess_${Math.random().toString(36).substr(2, 9)}`;
+    this.onRemoteSync = null; // Hooked by USPManager
     this.callbacks = new Map();
   }
 
@@ -10,46 +10,37 @@ export class USPClient {
       this.ws = new WebSocket(this.url);
       
       this.ws.onopen = () => {
-        console.log(`[USP System] Connected to Async Sync Stream (Session: ${this.session})`);
+        console.log(`[USP Client] Connected to Sync Stream`);
         resolve();
       };
       
-      this.ws.onerror = (err) => {
-        reject(err);
-      };
+      this.ws.onerror = (err) => reject(err);
 
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        const cb = this.callbacks.get(data.action);
-        if (cb) {
-          cb(data);
-        }
-        if (this.onMessage) {
-          this.onMessage(data); // Expose raw messages to caller
+        if (data.op === 'SET') {
+          // Server broadcasted a state change, update local proxy cache
+          if (this.onRemoteSync) {
+            this.onRemoteSync(data.session, data.key, data.val);
+          }
+        } else {
+          // It's likely an EXEC response
+          const cb = this.callbacks.get(data.action);
+          if (cb) cb(data);
         }
       };
     });
   }
 
-  setState(key, val) {
-    const msg = {
-      op: "SET",
-      session: this.session,
-      key,
-      val
-    };
-    this.ws.send(JSON.stringify(msg));
+  // Called by USPManager when local proxy is modified
+  syncState(session, key, value) {
+    if (this.ws && this.ws.readyState === 1 /* OPEN */) {
+      this.ws.send(JSON.stringify({ op: 'SET', session, key, val: value }));
+    }
   }
 
-  exec(action, callback) {
-    if (callback) {
-      this.callbacks.set(action, callback);
-    }
-    const msg = {
-      op: "EXEC",
-      session: this.session,
-      action
-    };
-    this.ws.send(JSON.stringify(msg));
+  exec(session, action, callback) {
+    if (callback) this.callbacks.set(action, callback);
+    this.ws.send(JSON.stringify({ op: "EXEC", session, action }));
   }
 }

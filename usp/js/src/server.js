@@ -7,12 +7,14 @@ export class USPServer {
     this.port = options.port || 4000;
     this.redisClient = createClient({ url: this.redisUrl });
     this.actions = new Map();
+    this.onRemoteSync = null; // Called by USPManager
+    this.wss = null;
   }
 
   async start() {
     this.redisClient.on('error', (err) => console.log('Redis Client Error', err));
     await this.redisClient.connect();
-    console.log('[USP] Connected to USP State Heap (Redis)');
+    console.log('[USP Server] Connected to USP State Heap (Redis)');
 
     this.wss = new WebSocketServer({ port: this.port });
     
@@ -22,54 +24,63 @@ export class USPServer {
           const msg = JSON.parse(data.toString());
           await this.handleMessage(ws, msg);
         } catch (err) {
-          console.error('[USP] Invalid message format', err);
+          console.error('[USP Server] Invalid message format', err);
         }
-      });
-      
-      ws.on('close', () => {
-        // Cleanup on disconnect
       });
     });
 
-    console.log(`[USP] Server listening on ws://localhost:${this.port}`);
+    console.log(`[USP Server] Listening on ws://localhost:${this.port}`);
   }
 
-  async stop() {
+  // Called by USPManager when a local proxy is modified on the server
+  async syncState(session, key, value) {
+    // 1. Write to Redis Heap
+    await this.redisClient.hSet(session, `public:${key}`, value);
+    // 2. Broadcast to all clients
     if (this.wss) {
-      this.wss.close();
+      const msg = JSON.stringify({ op: 'SET', session, key, val: value });
+      this.wss.clients.forEach(client => {
+        if (client.readyState === 1) {
+          client.send(msg);
+        }
+      });
     }
-    await this.redisClient.quit();
-  }
-
-  registerAction(actionName, handler) {
-    this.actions.set(actionName, handler);
-  }
-
-  async readState(session, key) {
-    return await this.redisClient.hGet(session, `public:${key}`);
   }
 
   async handleMessage(ws, msg) {
     if (msg.op === 'SET') {
+      // Client updated state. Write to Redis.
       await this.redisClient.hSet(msg.session, `public:${msg.key}`, msg.val);
-      console.log(`[USP SYNC] Heap updated: ${msg.key} = ${msg.val} (Session: ${msg.session})`);
-    } else if (msg.op === 'EXEC') {
-      console.log(`[USP EXEC] Trigger received: ${msg.action} (Session: ${msg.session})`);
-      const handler = this.actions.get(msg.action);
       
+      // Update local memory cache via Manager
+      if (this.onRemoteSync) {
+        this.onRemoteSync(msg.session, msg.key, msg.val);
+      }
+      
+      // Broadcast to other clients
+      const broadcastMsg = JSON.stringify(msg);
+      this.wss.clients.forEach(client => {
+        if (client !== ws && client.readyState === 1) {
+          client.send(broadcastMsg);
+        }
+      });
+
+    } else if (msg.op === 'EXEC') {
+      const handler = this.actions.get(msg.action);
       if (handler) {
         try {
-          const result = await handler(msg.session, this);
+          const result = await handler(msg.session);
           ws.send(JSON.stringify({ status: 'success', action: msg.action, result }));
         } catch (err) {
-          console.error(`[USP] Action error:`, err);
           ws.send(JSON.stringify({ error: err.message || 'Action failed', action: msg.action }));
         }
       } else {
         ws.send(JSON.stringify({ error: 'Unknown action', action: msg.action }));
       }
-    } else {
-      console.log(`[USP] Unknown operation: ${msg.op}`);
     }
+  }
+
+  registerAction(actionName, handler) {
+    this.actions.set(actionName, handler);
   }
 }
