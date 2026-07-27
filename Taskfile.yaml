@@ -1,0 +1,19 @@
+version: '3'
+
+includes:
+  go:
+    taskfile: ./prototypes/go/Taskfile.yaml
+    dir: ./prototypes/go
+
+tasks:
+  default:
+    cmds: [ "task -l" ]
+
+  up:
+    desc: "Start infrastructure (Redis)"
+    cmds:
+      - docker compose -f infra/docker-compose.yaml up -d
+  down:
+    desc: "Stop infrastructure"
+    cmds:
+      - docker compose -f infra/docker-compose.yaml down

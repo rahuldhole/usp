@@ -1,0 +1,11 @@
+version: '3'
+
+tasks:
+  build:
+    desc: "Build Go prototype"
+    cmds:
+      - go build -o bin/usp-go .
+  run:
+    desc: "Run Go prototype"
+    cmds:
+      - go run main.go
