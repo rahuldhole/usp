@@ -4,7 +4,9 @@
 
 The **Unified State Protocol (USP)** is an open, language-agnostic network protocol designed to unify client and server memory spaces into a single logical execution environment.
 
-By utilizing a centralized **volatile in-memory state heap** (e.g., Redis) alongside an **asynchronous sync stream** (e.g., WebSockets, WebTransport), USP eliminates traditional API design, manual serialization, and data-heavy request payloads across any language or platform stack.
+By utilizing a **persistent state heap** (e.g., SQLite, Redis) alongside a **serverless-compatible sync transport** (SSE for server→client push, HTTP POST for client→server mutations), USP eliminates traditional API design, manual serialization, and data-heavy request payloads across any language or platform stack.
+
+> **Serverless-first:** USP requires no persistent connections or dedicated WebSocket servers. It works natively with edge runtimes, serverless functions, and traditional servers alike.
 
 ---
 
@@ -12,20 +14,40 @@ By utilizing a centralized **volatile in-memory state heap** (e.g., Redis) along
 
 ```
                           ┌────────────────────────────────┐
-                          │    USP STATE HEAP (REDIS/RAM)   │
-                          │  session:123 -> Hash / JSON    │
+                          │     USP STATE HEAP (SQLite)     │
+                          │  session:todos -> { key: val } │
                           └───────────────▲────────────────┘
                                           │
              ┌────────────────────────────┴────────────────────────────┐
-   Client Diff Stream                                         Direct Memory Read
-  (WebSocket / Binary)                                       (Sub-Millisecond TCP)
-             │                                                         │
-┌────────────┴────────────┐                               ┌────────────┴────────────┐
-│       CLIENT NODE       │                               │       SERVER NODE       │
-│  (JS, Swift, Dart, C++) │ ─── Zero-Payload Exec Trigger ─►│  (Rust, Go, Python, JS) │
-└─────────────────────────┘                               └─────────────────────────┘
+   SSE Stream (server→client)                              HTTP POST (client→server)
+   GET /api/usp/subscribe                                  POST /api/usp/sync
+             │                                                        │
+┌────────────┴────────────┐                              ┌────────────┴────────────┐
+│       CLIENT NODE       │                              │       SERVER NODE       │
+│  (JS, Swift, Dart, C++) │                              │  (Nitro, Hono, Express) │
+│                         │ ── Zero-Payload Exec Trigger ─►│  (Rust, Go, Python, JS) │
+└─────────────────────────┘                              └─────────────────────────┘
 
 ```
+
+---
+
+### Transport Layer
+
+#### SSE + HTTP POST (Serverless-Compatible)
+
+USP uses a split transport model that works with any HTTP server, including serverless platforms:
+
+| Direction | Mechanism | Endpoint |
+|-----------|-----------|----------|
+| Server → Client | **SSE** (Server-Sent Events) | `GET /api/usp/subscribe?session=<id>` |
+| Client → Server | **HTTP POST** | `POST /api/usp/sync` |
+
+**Why not WebSockets?**
+- WebSockets require persistent server processes — incompatible with serverless/edge runtimes
+- SSE auto-reconnects natively in all browsers via `EventSource`
+- HTTP POST works with any serverless function, CDN, or API gateway
+- The combination provides the same real-time UX with zero infrastructure constraints
 
 ---
 
@@ -40,34 +62,51 @@ USP isolates variables into two memory domains within the shared heap:
 
 #### 2. Diff-Based State Synchronization
 
-When a local variable mutates in client memory, a USP client runtime intercepts the mutation and emits a lightweight delta frame to the heap:
+When a local variable mutates in client memory, a USP client runtime intercepts the mutation and emits a lightweight delta frame via HTTP POST:
 
 ```json
 {
   "op": "SET",
-  "session": "sess_8f3a9",
+  "session": "todos",
   "key": "user.theme",
-  "val": "dark"
+  "val": "dark",
+  "clientId": "k7f3x"
 }
-
 ```
 
-#### 3. Zero-Payload Execution Triggers
+The server persists the change to the state heap (SQLite) and broadcasts it to all other connected clients via their SSE streams:
+
+```
+event: sync
+data: {"op":"SET","session":"todos","key":"user.theme","val":"dark"}
+```
+
+#### 3. Session Subscription & Initial State
+
+When a client subscribes to a session, the server sends the complete current state as an SSE `init` event:
+
+```
+event: init
+data: {"session":"todos","state":{"user.theme":"dark","items":"[...]"}}
+```
+
+This eliminates the need for separate "fetch initial state" API calls.
+
+#### 4. Zero-Payload Execution Triggers
 
 Instead of serializing and transmitting state inside request bodies (as in REST or GraphQL), the client sends an execution trigger containing only the function identifier and session reference:
 
 ```json
 {
   "op": "EXEC",
-  "session": "sess_8f3a9",
+  "session": "todos",
   "action": "processOrder"
 }
-
 ```
 
-Upon receipt, the server process reads `sess_8f3a9` directly from the shared memory heap in microseconds, executes the logic, and mutates the heap as needed.
+Upon receipt, the server process reads the session directly from the shared memory heap, executes the logic, and mutates the heap as needed.
 
-#### 4. Automatic Ephemeral Lifecycle Management
+#### 5. Automatic Ephemeral Lifecycle Management
 
 Session memory is volatile by design. The heap maintains an active **Time-To-Live (TTL)** counter (e.g., 1800s) on every session key. When client nodes disconnect or timeout, the memory heap automatically garbage-collects the state, preventing memory leaks without manual cleanup code.
 
@@ -75,6 +114,8 @@ Session memory is volatile by design. The heap maintains an active **Time-To-Liv
 
 ### Key Protocol Benefits
 
+* **Serverless-First:** Works natively on Vercel, Cloudflare Workers, AWS Lambda, and traditional servers — no WebSocket infrastructure needed.
 * **Language Agnostic:** Works natively with any client (Swift, Flutter, C++, JavaScript) and any backend (Rust, Go, Python, Node.js).
 * **Zero Payload Overhead:** Eliminates heavy JSON request bodies in backend calls.
 * **No API Mapping:** Developers manipulate local runtime memory rather than building REST endpoints, GraphQL schemas, or gRPC definitions.
+* **Auto-Reconnect:** SSE natively reconnects on connection loss, providing resilient real-time sync without custom retry logic.

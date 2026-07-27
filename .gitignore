@@ -23,3 +23,7 @@ __pycache__/
 .venv/
 venv/
 env/
+
+*.db-shm
+*.db-wal
+*.db

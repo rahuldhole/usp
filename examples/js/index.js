@@ -6,14 +6,12 @@ const app = new Hono()
 
 // 1. Initialize USP Server Magic!
 const server = await USP.initServer({
-  redisUrl: 'redis://localhost:6379',
-  port: 4000
+  dbPath: './usp-state.db'
 })
 
 // Provide a quick way to fetch the initial state when a client connects
 server.registerAction('getState', async (session) => {
   const state = USP.useUsp(session);
-  // State is fetched from Redis (which returns strings)
   return state.todos || '[]';
 })
 

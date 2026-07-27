@@ -1,16 +1,12 @@
+/**
+ * Browser-safe USP entry point.
+ * Only exposes client-side functionality — no native deps.
+ */
 import { GlobalManager } from './src/core.js';
+import { USPClient } from './src/client.js';
 
 export const USP = {
-  async initServer(options = {}) {
-    const { USPServer } = await import('./src/server.js');
-    const server = new USPServer(options);
-    await server.start();
-    GlobalManager.init('server', server);
-    return server;
-  },
-
   async initClient(options = {}) {
-    const { USPClient } = await import('./src/client.js');
     const client = new USPClient(options);
     await client.connect();
     GlobalManager.init('client', client);
@@ -23,11 +19,6 @@ export const USP = {
 
   onSync(callback) {
     GlobalManager.onSync(callback);
-  },
-
-  /** Get the underlying server instance (for mounting HTTP handlers) */
-  _getServer() {
-    return GlobalManager.engine;
   },
 
   exec(session, action, callback) {

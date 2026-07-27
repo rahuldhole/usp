@@ -1,81 +1,139 @@
-import { createClient } from 'redis';
-import { WebSocketServer } from 'ws';
+/**
+ * USP Server — Serverless-compatible transport.
+ * Uses SSE (Server-Sent Events) for server→client push
+ * and HTTP POST for client→server mutations.
+ * 
+ * Designed to run inside any HTTP framework (Nitro, Express, Hono, etc.)
+ * No standalone server needed — just mount the handler.
+ */
+import Database from 'better-sqlite3';
 
 export class USPServer {
   constructor(options = {}) {
-    this.redisUrl = options.redisUrl || 'redis://localhost:6379';
-    this.port = options.port || 4000;
-    this.redisClient = createClient({ url: this.redisUrl });
+    this.dbPath = options.dbPath || './usp-state.db';
     this.actions = new Map();
-    this.onRemoteSync = null; // Called by USPManager
-    this.wss = null;
+    this.onRemoteSync = null;
+    /** @type {Map<string, Set<(event: string, data: any) => void>>} */
+    this.subscribers = new Map(); // session -> Set of SSE write functions
+
+    // Initialize SQLite
+    this.db = new Database(this.dbPath);
+    this.db.pragma('journal_mode = WAL');
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS usp_state (
+        session TEXT NOT NULL,
+        key     TEXT NOT NULL,
+        value   TEXT,
+        PRIMARY KEY (session, key)
+      )
+    `);
+    this._stmtSet = this.db.prepare(
+      'INSERT OR REPLACE INTO usp_state (session, key, value) VALUES (?, ?, ?)'
+    );
+    this._stmtGetAll = this.db.prepare(
+      'SELECT key, value FROM usp_state WHERE session = ?'
+    );
   }
 
   async start() {
-    this.redisClient.on('error', (err) => console.log('Redis Client Error', err));
-    await this.redisClient.connect();
-    console.log('[USP Server] Connected to USP State Heap (Redis)');
-
-    this.wss = new WebSocketServer({ port: this.port });
-    
-    this.wss.on('connection', (ws) => {
-      ws.on('message', async (data) => {
-        try {
-          const msg = JSON.parse(data.toString());
-          await this.handleMessage(ws, msg);
-        } catch (err) {
-          console.error('[USP Server] Invalid message format', err);
-        }
-      });
-    });
-
-    console.log(`[USP Server] Listening on ws://localhost:${this.port}`);
+    console.log('[USP Server] SQLite state store ready:', this.dbPath);
   }
 
-  // Called by USPManager when a local proxy is modified on the server
-  async syncState(session, key, value) {
-    // 1. Write to Redis Heap
-    await this.redisClient.hSet(session, `public:${key}`, value);
-    // 2. Broadcast to all clients
-    if (this.wss) {
-      const msg = JSON.stringify({ op: 'SET', session, key, val: value });
-      this.wss.clients.forEach(client => {
-        if (client.readyState === 1) {
-          client.send(msg);
-        }
-      });
+  // ── State Operations ──────────────────────────────────────────────
+
+  /** Write a key and broadcast to all SSE subscribers */
+  syncState(session, key, value) {
+    this._stmtSet.run(session, key, value);
+    this._broadcast(session, { op: 'SET', session, key, val: value });
+  }
+
+  /** Get all state for a session */
+  getSessionState(session) {
+    const rows = this._stmtGetAll.all(session);
+    const state = {};
+    for (const row of rows) {
+      state[row.key] = row.value;
     }
+    return state;
   }
 
-  async handleMessage(ws, msg) {
-    if (msg.op === 'SET') {
-      // Client updated state. Write to Redis.
-      await this.redisClient.hSet(msg.session, `public:${msg.key}`, msg.val);
-      
+  // ── HTTP Handlers (mount these in your framework) ─────────────────
+
+  /**
+   * Handle incoming POST from client.
+   * Expects JSON body: { op, session, key?, val?, action? }
+   * Returns JSON response.
+   */
+  async handlePost(body) {
+    if (body.op === 'SET') {
+      this._stmtSet.run(body.session, body.key, body.val);
+
       // Update local memory cache via Manager
       if (this.onRemoteSync) {
-        this.onRemoteSync(msg.session, msg.key, msg.val);
+        this.onRemoteSync(body.session, body.key, body.val);
       }
-      
-      // Broadcast to other clients
-      const broadcastMsg = JSON.stringify(msg);
-      this.wss.clients.forEach(client => {
-        if (client !== ws && client.readyState === 1) {
-          client.send(broadcastMsg);
-        }
-      });
 
-    } else if (msg.op === 'EXEC') {
-      const handler = this.actions.get(msg.action);
+      // Broadcast to all SSE subscribers (except the sender — handled via clientId)
+      this._broadcast(body.session, {
+        op: 'SET', session: body.session, key: body.key, val: body.val
+      }, body.clientId);
+
+      return { ok: true };
+
+    } else if (body.op === 'EXEC') {
+      const handler = this.actions.get(body.action);
       if (handler) {
         try {
-          const result = await handler(msg.session);
-          ws.send(JSON.stringify({ status: 'success', action: msg.action, result }));
+          const result = await handler(body.session);
+          return { status: 'success', action: body.action, result };
         } catch (err) {
-          ws.send(JSON.stringify({ error: err.message || 'Action failed', action: msg.action }));
+          return { error: err.message || 'Action failed', action: body.action };
         }
-      } else {
-        ws.send(JSON.stringify({ error: 'Unknown action', action: msg.action }));
+      }
+      return { error: 'Unknown action', action: body.action };
+    }
+
+    return { error: 'Unknown op' };
+  }
+
+  /**
+   * Subscribe a client to a session via SSE.
+   * @param {string} session
+   * @param {(event: string, data: any) => void} send - function to push SSE events
+   * @param {() => void} onClose - called when connection closes  
+   * @returns {{ clientId: string, unsubscribe: () => void }}
+   */
+  subscribe(session, send, onClose) {
+    const clientId = Math.random().toString(36).slice(2);
+
+    if (!this.subscribers.has(session)) {
+      this.subscribers.set(session, new Map());
+    }
+    this.subscribers.get(session).set(clientId, send);
+
+    // Send initial state
+    const state = this.getSessionState(session);
+    send('init', { session, state });
+
+    const unsubscribe = () => {
+      const subs = this.subscribers.get(session);
+      if (subs) {
+        subs.delete(clientId);
+        if (subs.size === 0) this.subscribers.delete(session);
+      }
+    };
+
+    return { clientId, unsubscribe };
+  }
+
+  // ── Internal ──────────────────────────────────────────────────────
+
+  _broadcast(session, data, excludeClientId) {
+    const subs = this.subscribers.get(session);
+    if (!subs) return;
+    for (const [clientId, send] of subs) {
+      if (clientId !== excludeClientId) {
+        send('sync', data);
       }
     }
   }

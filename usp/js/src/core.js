@@ -15,6 +15,23 @@ export class USPManager {
     this.engine.onRemoteSync = (session, key, value) => {
       this.applyRemoteSync(session, key, value);
     };
+
+    if (this.mode === 'client') {
+      this.engine.onInit = (session, state) => {
+        if (!this.stateCache.has(session)) {
+          const targetObj = {};
+          const proxy = createUspProxy(session, targetObj, this);
+          this.stateCache.set(session, { targetObj, proxy });
+        }
+        const { targetObj } = this.stateCache.get(session);
+        for (const key in state) {
+          targetObj[key] = state[key];
+          if (this._onSyncCallback) {
+            this._onSyncCallback(session, key, state[key]);
+          }
+        }
+      };
+    }
   }
 
   useUsp(session) {
@@ -26,6 +43,10 @@ export class USPManager {
       const targetObj = {};
       const proxy = createUspProxy(session, targetObj, this);
       this.stateCache.set(session, { targetObj, proxy });
+
+      if (this.mode === 'client' && this.engine.subscribe) {
+        this.engine.subscribe(session);
+      }
     }
 
     return this.stateCache.get(session).proxy;
@@ -47,6 +68,15 @@ export class USPManager {
     const { targetObj } = this.stateCache.get(session);
     // Update local cache without triggering a dispatch
     targetObj[key] = value;
+    
+    // Notify listeners
+    if (this._onSyncCallback) {
+      this._onSyncCallback(session, key, value);
+    }
+  }
+
+  onSync(callback) {
+    this._onSyncCallback = callback;
   }
 }
 

@@ -28,37 +28,30 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { USP } from 'usp-js'
+import { USP } from 'usp-js/client'
 
-const sharedSession = "global_todos_session";
 const localTodos = ref([]);
 const newTodo = ref('');
 let sharedState = null;
 
 onMounted(async () => {
-  // 1. Initialize the USP client and connect to the dedicated server
-  await USP.initClient({ wsUrl: "ws://" + location.hostname + ":4001" });
-  
-  // 2. Fetch initial state using a zero-payload exec
-  USP.exec(sharedSession, 'getState', (res) => {
-    localTodos.value = JSON.parse(res.result || '[]');
-  });
+  // 1. Connect — uses SSE + HTTP POST, no WebSocket needed
+  await USP.initClient();
 
-  // 3. Connect to the magical proxy!
-  sharedState = USP.useUsp(sharedSession);
+  // 2. One magic variable — shared state, synced everywhere
+  sharedState = USP.useUsp("todos");
 
-  // Quick trick to keep Vue reactive: poll the proxy.
-  // (In a future usp-vue package, this would just return a native Vue reactive() object!)
-  setInterval(() => {
-    if (sharedState.todos) {
-      localTodos.value = JSON.parse(sharedState.todos);
+  // 3. React to remote changes (other tabs / clients)
+  USP.onSync((session, key) => {
+    if (key === 'todos') {
+      localTodos.value = JSON.parse(sharedState.todos || '[]');
     }
-  }, 100);
+  });
 });
 
 function saveTodos() {
   if (sharedState) {
-    // Magic assignment! Automatically syncs to Redis & broadcasts to all clients!
+    // One assignment = persists to SQLite + broadcasts to all clients via SSE
     sharedState.todos = JSON.stringify(localTodos.value);
   }
 }
