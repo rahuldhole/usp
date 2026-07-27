@@ -4,7 +4,7 @@ tasks:
   install:
     desc: "Install NPM dependencies"
     cmds:
-      - npm install
+      - pnpm install
   run:
     desc: "Run JS prototype"
     cmds:

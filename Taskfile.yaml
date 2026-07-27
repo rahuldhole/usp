@@ -2,11 +2,11 @@ version: '3'
 
 includes:
   go:
-    taskfile: ./prototypes/go/Taskfile.yaml
-    dir: ./prototypes/go
+    taskfile: ./examples/go/Taskfile.yaml
+    dir: ./examples/go
   js:
-    taskfile: ./prototypes/js/Taskfile.yaml
-    dir: ./prototypes/js
+    taskfile: ./examples/js/Taskfile.yaml
+    dir: ./examples/js
 
 tasks:
   default:
