@@ -7,11 +7,21 @@ export class MemoryAdapter {
     console.log('[MemoryAdapter] Ready');
   }
 
-  async set(session, key, value) {
+  async set(session, key, value, hlc) {
     if (!this.store.has(session)) {
       this.store.set(session, new Map());
     }
-    this.store.get(session).set(key, value);
+    const sessionMap = this.store.get(session);
+    const existing = sessionMap.get(key);
+    
+    if (existing && existing.hlc && hlc) {
+      if (existing.hlc > hlc) {
+        return false; // Rejected, local is newer
+      }
+    }
+    
+    sessionMap.set(key, { value, hlc });
+    return true;
   }
 
   async getSessionState(session) {

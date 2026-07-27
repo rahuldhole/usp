@@ -7,6 +7,7 @@
  * No standalone server needed — just mount the handler.
  */
 import { MemoryAdapter } from './adapters/MemoryAdapter.js';
+import { HLC } from './hlc.js';
 
 export class USPServer {
   constructor(options = {}) {
@@ -15,6 +16,7 @@ export class USPServer {
     this.onRemoteSync = null;
     /** @type {Map<string, Set<(event: string, data: any) => void>>} */
     this.subscribers = new Map(); // session -> Set of SSE write functions
+    this.hlc = new HLC('server');
   }
 
   async start() {
@@ -27,9 +29,14 @@ export class USPServer {
   // ── State Operations ──────────────────────────────────────────────
 
   /** Write a key and broadcast to all SSE subscribers */
-  async syncState(session, key, value) {
-    await this.adapter.set(session, key, value);
-    this._broadcast(session, { op: 'SET', session, key, val: value });
+  async syncState(session, key, value, hlc) {
+    if (!hlc) {
+      hlc = this.hlc.inc();
+    } else {
+      this.hlc.receive(hlc);
+    }
+    await this.adapter.set(session, key, value, hlc);
+    this._broadcast(session, { op: 'SET', session, key, val: value, hlc });
   }
 
   /** Get all state for a session */
@@ -46,16 +53,23 @@ export class USPServer {
    */
   async handlePost(body) {
     if (body.op === 'SET') {
-      await this.adapter.set(body.session, body.key, body.val);
+      const hlc = body.hlc || this.hlc.inc();
+      if (body.hlc) this.hlc.receive(body.hlc);
+      
+      const applied = await this.adapter.set(body.session, body.key, body.val, hlc);
+      if (applied === false) {
+        // State was rejected by CRDT logic
+        return { ok: true, applied: false };
+      }
 
       // Update local memory cache via Manager
       if (this.onRemoteSync) {
-        this.onRemoteSync(body.session, body.key, body.val);
+        this.onRemoteSync(body.session, body.key, body.val, hlc);
       }
 
       // Broadcast to all SSE subscribers (except the sender — handled via clientId)
       this._broadcast(body.session, {
-        op: 'SET', session: body.session, key: body.key, val: body.val
+        op: 'SET', session: body.session, key: body.key, val: body.val, hlc
       }, body.clientId);
 
       return { ok: true };
