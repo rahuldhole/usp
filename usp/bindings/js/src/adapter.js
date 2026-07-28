@@ -4,7 +4,9 @@ export class MemoryAdapter {
   }
 
   async get(session, key) {
-    return this.store.get(`${session}:${key}`);
+    const entry = this.store.get(`${session}:${key}`);
+    if (!entry || entry.deleted) return undefined;
+    return entry;
   }
 
   async set(session, key, val, hlc) {
@@ -15,7 +17,7 @@ export class MemoryAdapter {
       return false; // Outdated HLC
     }
     
-    this.store.set(storeKey, { val, hlc });
+    this.store.set(storeKey, { val, hlc, deleted: false });
     return true;
   }
 
@@ -27,14 +29,15 @@ export class MemoryAdapter {
       return false; // Outdated HLC
     }
     
-    this.store.delete(storeKey);
+    // Store tombstone instead of actual deletion to prevent out-of-order resurrection
+    this.store.set(storeKey, { val: undefined, hlc, deleted: true });
     return true;
   }
 
   async getState(session) {
     const state = {};
     for (const [k, v] of this.store.entries()) {
-      if (k.startsWith(`${session}:`)) {
+      if (k.startsWith(`${session}:`) && !v.deleted && v.val !== undefined) {
         state[k.substring(session.length + 1)] = v.val;
       }
     }

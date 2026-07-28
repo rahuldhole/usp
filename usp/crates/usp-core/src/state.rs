@@ -40,6 +40,22 @@ impl DiffEngine {
     pub fn generate_sync_payload(mutation: &Mutation) -> Result<String, serde_json::Error> {
         serde_json::to_string(mutation)
     }
+
+    pub fn apply_mutation_to_state(
+        state: &mut crate::crdt::LwwMap,
+        mutation: &Mutation,
+        default_node_id: &str,
+    ) -> bool {
+        state.apply_mutation(mutation, default_node_id)
+    }
+
+    pub fn compute_diff(
+        current: &crate::crdt::LwwMap,
+        old: &crate::crdt::LwwMap,
+        session: &str,
+    ) -> Vec<Mutation> {
+        current.diff(session, old)
+    }
 }
 
 #[cfg(test)]
