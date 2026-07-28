@@ -1,0 +1,2 @@
+patchedDependencies:
+  http-proxy: patches/http-proxy.patch
