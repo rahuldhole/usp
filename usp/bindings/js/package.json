@@ -1,0 +1,15 @@
+{
+  "name": "@rahuldhole/usp",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./wasm": "./wasm/usp_wasm.js"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1"
+  }
+}

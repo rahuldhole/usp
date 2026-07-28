@@ -114,7 +114,7 @@ For native server backends and mobile SDKs:
 
 | Language Environment | Integration Mechanism | Deployment Strategy |
 | --- | --- | --- |
-| **Browser JS / TS** | WebAssembly (`wasm-bindgen`) | Published to `npm` as `@usp/client` |
+| **Browser JS / TS** | WebAssembly (`wasm-bindgen`) | Published to `npm` as `@rahuldhole/client` |
 | **Edge Workers (Cloudflare/Vercel)** | V8 WASM Isolate Import | Bundled into edge worker builds |
 | **Go** | `cgo` linking to `libusp.a` static lib | Published as `github.com/usp-protocol/usp-go` |
 | **Python** | PyO3 / CFFI wrapper around `libusp.so` | Published to PyPI as `usp-python` |
