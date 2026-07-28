@@ -34,7 +34,7 @@ app.get('/api/usp/subscribe', async (req, res) => {
     await usp.handleSubscribe(req, res);
     // Send the Node-Local counter immediately upon connecting
     if (!res.writableEnded) {
-        res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: nodeVisits, options: { channel: 'cluster_demo', access: 'client' } })}\n\n`);
+        res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: nodeVisits, options: { channel: 'server_' + (process.env.PORT || 3000), access: 'client' } })}\n\n`);
     }
 });
 
@@ -47,7 +47,7 @@ setInterval(() => {
     nodeVisits++;
     for (const client of usp.clients) {
         if (client.channels.includes('cluster_demo')) {
-            client.res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: nodeVisits, options: { channel: 'cluster_demo', access: 'client' } })}\n\n`);
+            client.res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: nodeVisits, options: { channel: 'server_' + (process.env.PORT || 3000), access: 'client' } })}\n\n`);
         }
     }
 }, 1000);
