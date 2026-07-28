@@ -49,12 +49,12 @@ mod tests {
 
     #[test]
     fn test_parse_set_mutation() {
-        let payload = r#"{"op":"SET","session":"todos","key":"user.theme","val":"dark","clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
+        let payload = r#"{"op":"SET","session":"session_123","key":"user.theme","val":"dark","clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
         let mutation = DiffEngine::parse_mutation(payload).unwrap();
         assert_eq!(
             mutation,
             Mutation::Set {
-                session: "todos".to_string(),
+                session: "session_123".to_string(),
                 key: "user.theme".to_string(),
                 val: json!("dark"),
                 client_id: Some("k7f3x".to_string()),
@@ -65,13 +65,13 @@ mod tests {
 
     #[test]
     fn test_parse_exec_mutation() {
-        let payload = r#"{"op":"EXEC","session":"todos","action":"clearCompleted"}"#;
+        let payload = r#"{"op":"EXEC","session":"session_123","action":"trigger_workflow"}"#;
         let mutation = DiffEngine::parse_mutation(payload).unwrap();
         assert_eq!(
             mutation,
             Mutation::Exec {
-                session: "todos".to_string(),
-                action: "clearCompleted".to_string(),
+                session: "session_123".to_string(),
+                action: "trigger_workflow".to_string(),
                 client_id: None,
             }
         );
