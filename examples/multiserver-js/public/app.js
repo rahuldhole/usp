@@ -69,14 +69,21 @@ async function main() {
     document.getElementById('user-dec-btn').onclick = () => userCounter.value = (userCounter.value || 0) - 1;
 
     // Probe Private
-    document.getElementById('probe-btn').onclick = () => {
-        // Private state isn't part of any client proxy, we try reading from global just to test
-        const secret = client.state['cluster_demo']?.secret;
-        if (secret) {
-            document.getElementById('probe-result').textContent = `SUCCESS: ${secret} (This shouldn't happen!)`;
+    document.getElementById('probe-btn').onclick = async () => {
+        const pwd = document.getElementById('probe-pwd').value;
+        const res = await fetch('/api/probe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd })
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('probe-result').textContent = `SUCCESS: ${data.secret}`;
             document.getElementById('probe-result').style.color = "green";
         } else {
-            document.getElementById('probe-result').textContent = `FAILED: private state is inaccessible on client.`;
+            const data = await res.json();
+            document.getElementById('probe-result').textContent = `FAILED: ${data.error}`;
             document.getElementById('probe-result').style.color = "red";
         }
     };

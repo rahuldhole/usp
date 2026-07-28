@@ -38,39 +38,47 @@ app.get('/api/usp/subscribe', async (req, res) => {
     }
 });
 
+app.get('/api/node-id', (req, res) => {
+    res.json({ port: process.env.PORT });
+});
+
+// Periodic Node-Local State Broadcast (Every 1s)
+setInterval(() => {
+    nodeVisits++;
+    for (const client of usp.clients) {
+        if (client.channels.includes('cluster_demo')) {
+            client.res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: nodeVisits, options: { channel: 'cluster_demo', access: 'client' } })}\n\n`);
+        }
+    }
+}, 1000);
+
+// API Probe for Private State
+app.post('/api/probe', async (req, res) => {
+    const { password } = req.body;
+    if (password === 'admin123') {
+        const secret = await usp.getState('private.secret', { channel: 'cluster_demo' });
+        res.json({ secret });
+    } else {
+        res.status(401).json({ error: 'Unauthorized: Invalid password' });
+    }
+});
+
 // Increment counters on each page visit
 app.use(async (req, res, next) => {
     if (req.path === '/' || req.path === '/index.html') {
-        // Use the new DX methods that abstract away internal storage keys
-        
         // 1. Global State
         const globalCounter = usp.bindState('global_counter', { channel: 'cluster_demo' });
         const newVal = (await globalCounter.get() || 0) + 1;
         await globalCounter.set(newVal);
         
         // 2. Private State (Server-only)
-        const privateSecret = `secret_${Date.now()}`;
-        await usp.setState('secret', privateSecret, { channel: 'cluster_demo', access: 'server' });
+        const privateSecret = `super_secret_${Date.now()}`;
+        await usp.setState('private.secret', privateSecret, { channel: 'cluster_demo', access: 'server', password: 'admin123' });
         
         console.log(`[Worker ${process.env.PORT}] 🟢 Page visited! Incremented global counter to ${newVal}`);
-        
-        // 3. Node-Local State (Ephemeral, specific to this instance)
-        nodeVisits++;
-        // We bypass Redis adapter and just broadcast to clients directly on this node
-        for (const client of usp.clients) {
-            if (client.channels.includes('cluster_demo')) {
-                client.res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: nodeVisits, options: { channel: 'cluster_demo', access: 'client' } })}\n\n`);
-            }
-        }
     }
     next();
 });
-
-// Helper route to identify which server we hit
-app.get('/api/node-id', (req, res) => {
-    res.json({ port: process.env.PORT });
-});
-
 // Static files
 app.use(express.static('public'));
 app.use('/usp-sdk', express.static(path.join(__dirname, '../../usp/bindings/ts')));

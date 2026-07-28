@@ -88,11 +88,16 @@ export class USPServer {
 
     // Send full state dump immediately
     for (const channel of channels) {
-      const fullState = await this.adapter.getState(channel);
-      for (const [storageKey, val] of Object.entries(fullState)) {
-        const key = storageKey.split(':').slice(1).join(':');
-        res.write(`data: ${JSON.stringify({ op: 'SET', key, val, options: { channel, access: 'global' } })}\n\n`);
+      const state = await this.adapter.getState(channel);
+      
+      const cleanState: any = {};
+      for (const [k, v] of Object.entries(state)) {
+        const cleanKey = k.startsWith(`${channel}:`) ? k.slice(channel.length + 1) : k;
+        if (cleanKey.startsWith('private.') || cleanKey === 'private') continue; // Prevent leaking private state in INIT
+        cleanState[cleanKey] = v;
       }
+      
+      res.write(`data: ${JSON.stringify({ op: 'INIT', session: channel, state: cleanState })}\n\n`);
     }
 
     const client = { channels, res };

@@ -84,9 +84,10 @@
     
     <div class="box">
         <h2>Private State Probe</h2>
+        <input type="password" id="probe-pwd" placeholder="Enter password (e.g. admin123)" style="padding: 6px; margin-bottom: 10px;">
         <button id="probe-btn">Attempt to Read Private State</button>
         <p id="probe-result" style="color: red; font-weight: bold;"></p>
-        <p><small>The server keeps `private:secret` hidden. Clients cannot read it.</small></p>
+        <p><small>The server keeps `private.secret` hidden. Clients cannot read it.</small></p>
     </div>
 
     <!-- We import our frontend app as a module -->
