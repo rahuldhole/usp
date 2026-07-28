@@ -43,9 +43,9 @@ export class USPServer {
 
       let success = true;
       if (op === 'SET') {
-        success = await this.adapter.set(channel, storageKey, val, hlc);
+        success = await this.adapter.set(channel, storageKey, val, hlc, options);
       } else if (op === 'DELETE') {
-        success = await this.adapter.delete(channel, storageKey, hlc);
+        success = await this.adapter.delete(channel, storageKey, hlc, options);
       } else if (op === 'EXEC') {
         const handler = this.actionHandlers.get(action);
         if (handler) {
@@ -139,7 +139,7 @@ export class USPServer {
     const storageKey = get_storage_key(mutationStr);
     
     const hlc = Date.now() + "-0"; // Simple HLC for server-originated mutations
-    await this.adapter.set(channel, storageKey, val, hlc);
+    await this.adapter.set(channel, storageKey, val, hlc, options);
     
     mutation.hlc = hlc;
     this.broadcast(mutation);

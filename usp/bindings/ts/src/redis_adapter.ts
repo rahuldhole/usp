@@ -47,7 +47,7 @@ export class RedisAdapter {
     return entry;
   }
 
-  async set(session: string, key: string, val: any, hlc: string) {
+  async set(session: string, key: string, val: any, hlc: string, options: any = {}) {
     const storeKey = `usp:${session}`;
     
     // Check existing HLC to prevent out-of-order
@@ -62,14 +62,15 @@ export class RedisAdapter {
     const entry = { val, hlc, deleted: false };
     await this.storeClient.hset(storeKey, key, JSON.stringify(entry));
     
-    // Publish to cluster
-    const mutation: any = { op: 'SET', session, key, val, hlc };
+    // Publish to cluster with clean key and full options
+    const cleanKey = key.includes(':') ? key.split(':').slice(1).join(':') : key;
+    const mutation: any = { op: 'SET', key: cleanKey, val, hlc, options: Object.assign({ channel: session }, options) };
     await this.pubClient.publish('usp:mutations', JSON.stringify(mutation));
     
     return true;
   }
 
-  async delete(session: string, key: string, hlc: string) {
+  async delete(session: string, key: string, hlc: string, options: any = {}) {
     const storeKey = `usp:${session}`;
     
     // Check existing HLC
@@ -85,8 +86,9 @@ export class RedisAdapter {
     const entry = { val: undefined, hlc, deleted: true };
     await this.storeClient.hset(storeKey, key, JSON.stringify(entry));
     
-    // Publish to cluster
-    const mutation = { op: 'DELETE', session, key, hlc };
+    // Publish to cluster with clean key and full options
+    const cleanKey = key.includes(':') ? key.split(':').slice(1).join(':') : key;
+    const mutation: any = { op: 'DELETE', key: cleanKey, hlc, options: Object.assign({ channel: session }, options) };
     await this.pubClient.publish('usp:mutations', JSON.stringify(mutation));
     
     return true;

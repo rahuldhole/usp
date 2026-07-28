@@ -11,7 +11,7 @@ export class MemoryAdapter {
     return entry;
   }
 
-  async set(session: string, key: string, val: any, hlc: string) {
+  async set(session: string, key: string, val: any, hlc: string, _options: any = {}) {
     const storeKey = `${session}:${key}`;
     const existing = this.store.get(storeKey);
     
@@ -23,7 +23,7 @@ export class MemoryAdapter {
     return true;
   }
 
-  async delete(session: string, key: string, hlc: string) {
+  async delete(session: string, key: string, hlc: string, _options: any = {}) {
     const storeKey = `${session}:${key}`;
     const existing = this.store.get(storeKey);
     
