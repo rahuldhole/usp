@@ -7,6 +7,7 @@ pub enum Mutation {
     #[serde(rename = "SET")]
     Set {
         session: String,
+        scope: Option<String>,
         key: String,
         val: Value,
         #[serde(rename = "clientId")]
@@ -16,6 +17,7 @@ pub enum Mutation {
     #[serde(rename = "DELETE")]
     Delete {
         session: String,
+        scope: Option<String>,
         key: String,
         #[serde(rename = "clientId")]
         client_id: Option<String>,
@@ -24,6 +26,7 @@ pub enum Mutation {
     #[serde(rename = "EXEC")]
     Exec {
         session: String,
+        scope: Option<String>,
         action: String,
         #[serde(rename = "clientId")]
         client_id: Option<String>,
@@ -65,12 +68,13 @@ mod tests {
 
     #[test]
     fn test_parse_set_mutation() {
-        let payload = r#"{"op":"SET","session":"session_123","key":"user.theme","val":"dark","clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
+        let payload = r#"{"op":"SET","session":"session_123","scope":"channel","key":"user.theme","val":"dark","clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
         let mutation = DiffEngine::parse_mutation(payload).unwrap();
         assert_eq!(
             mutation,
             Mutation::Set {
                 session: "session_123".to_string(),
+                scope: Some("channel".to_string()),
                 key: "user.theme".to_string(),
                 val: json!("dark"),
                 client_id: Some("k7f3x".to_string()),
@@ -81,12 +85,13 @@ mod tests {
 
     #[test]
     fn test_parse_exec_mutation() {
-        let payload = r#"{"op":"EXEC","session":"session_123","action":"trigger_workflow"}"#;
+        let payload = r#"{"op":"EXEC","session":"session_123","scope":"global","action":"trigger_workflow"}"#;
         let mutation = DiffEngine::parse_mutation(payload).unwrap();
         assert_eq!(
             mutation,
             Mutation::Exec {
                 session: "session_123".to_string(),
+                scope: Some("global".to_string()),
                 action: "trigger_workflow".to_string(),
                 client_id: None,
             }

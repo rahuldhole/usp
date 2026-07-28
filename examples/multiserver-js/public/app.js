@@ -16,26 +16,69 @@ async function main() {
 
     // 2. Initialize USP Client Transport
     // We connect to the load balancer (port 3000), which proxies to 3001/3002/3003
-    const client = new USPClient(window.location.origin + '/api/usp');
     
-    // 3. Connect to "cluster_demo" session and get Proxy
-    const state = client.useUsp('cluster_demo', {});
-    
-    const counterValEl = document.getElementById('counter-val');
-    const incBtn = document.getElementById('inc-btn');
-    const decBtn = document.getElementById('dec-btn');
+    // 3. Simulated User Authentication
+    let userId = localStorage.getItem('demo_user_id');
+    if (!userId) {
+        userId = 'u' + Math.floor(Math.random() * 10000);
+        localStorage.setItem('demo_user_id', userId);
+    }
+    document.getElementById('user-id-display').textContent = userId;
 
+    const client = new USPClient(window.location.origin + `/api/usp?userId=${userId}`);
+    
+    // 4. Connect to "cluster_demo" session with different state scopes
+    const globalState = client.useUsp('cluster_demo'); 
+    const channelState = client.useUsp('cluster_demo', { scope: 'channel' });
+    const userState = client.useUsp('cluster_demo', { scope: 'user' });
+    const nodeState = client.useUsp('cluster_demo', { scope: 'node' });
+    
+    // 5. User Switcher Handlers
+    const switchUser = (id) => {
+        localStorage.setItem('demo_user_id', id);
+        window.location.reload();
+    };
+    document.getElementById('btn-u1').onclick = () => switchUser('u1');
+    document.getElementById('btn-u2').onclick = () => switchUser('u2');
+    document.getElementById('btn-u3').onclick = () => switchUser('u3');
+
+    // UI Elements
+    const globalEl = document.getElementById('global-counter-val');
+    const channelEl = document.getElementById('channel-counter-val');
+    const userEl = document.getElementById('user-counter-val');
+    const nodeEl = document.getElementById('node-counter-val');
+    
     // Render loop triggered on state changes
-    client.subscribe((latestState) => {
-        counterValEl.textContent = latestState.counter ?? 0;
+    client.subscribe((states) => {
+        globalEl.textContent = states.global?.counter ?? 0;
+        channelEl.textContent = states.channel?.counter ?? 0;
+        userEl.textContent = states.user?.counter ?? 0;
+        nodeEl.textContent = states.node?.counter ?? 0;
     });
 
-    incBtn.onclick = () => {
-        state.counter = (state.counter || 0) + 1;
-    };
-    
-    decBtn.onclick = () => {
-        state.counter = (state.counter || 0) - 1;
+    // Global
+    document.getElementById('global-inc-btn').onclick = () => globalState.counter = (globalState.counter || 0) + 1;
+    document.getElementById('global-dec-btn').onclick = () => globalState.counter = (globalState.counter || 0) - 1;
+
+    // Channel
+    document.getElementById('channel-inc-btn').onclick = () => channelState.counter = (channelState.counter || 0) + 1;
+    document.getElementById('channel-dec-btn').onclick = () => channelState.counter = (channelState.counter || 0) - 1;
+
+    // User
+    document.getElementById('user-inc-btn').onclick = () => userState.counter = (userState.counter || 0) + 1;
+    document.getElementById('user-dec-btn').onclick = () => userState.counter = (userState.counter || 0) - 1;
+
+    // Probe Private
+    document.getElementById('probe-btn').onclick = () => {
+        // Private state isn't part of any client proxy, we try reading from global just to test
+        const secret = globalState['private:secret'];
+        if (secret) {
+            document.getElementById('probe-result').textContent = `SUCCESS: ${secret} (This shouldn't happen!)`;
+            document.getElementById('probe-result').style.color = "green";
+        } else {
+            document.getElementById('probe-result').textContent = `FAILED: private state is inaccessible on client.`;
+            document.getElementById('probe-result').style.color = "red";
+        }
     };
 }
 

@@ -25,17 +25,68 @@
     
     <div class="box" style="background: #f9f9f9;">
         <p>You are currently talking to Node: <span id="node-id" class="node-badge">Loading...</span></p>
-        <p><small>(Refresh the page to see this hit different load-balanced backend ports)</small></p>
+        <div style="margin-top: 10px;">
+            Force Node: 
+            <button onclick="window.location.port=3000">LB (3000)</button>
+            <button onclick="window.location.port=3001">3001</button>
+            <button onclick="window.location.port=3002">3002</button>
+            <button onclick="window.location.port=3003">3003</button>
+        </div>
+    </div>
+    
+    <div class="box" style="background: #eef;">
+        <p>Simulated User: <strong id="user-id-display">Loading...</strong></p>
+        <div>
+            Switch User: 
+            <button id="btn-u1">User 1</button>
+            <button id="btn-u2">User 2</button>
+            <button id="btn-u3">User 3</button>
+        </div>
     </div>
 
     <div class="box">
         <h2>Global Distributed Counter</h2>
         <div style="display: flex; gap: 10px; align-items: center;">
-            <button id="dec-btn">-</button>
-            <span id="counter-val" style="font-size: 3rem; font-weight: bold; margin: 0 20px;">0</span>
-            <button id="inc-btn">+</button>
+            <button id="global-dec-btn">-</button>
+            <span id="global-counter-val" style="font-size: 3rem; font-weight: bold; margin: 0 20px;">0</span>
+            <button id="global-inc-btn">+</button>
         </div>
-        <p><small>Open this page in a second tab. Clicking +/- here might hit Node 3001, but the other tab (connected to Node 3002) will still update instantly!</small></p>
+        <p><small>Shared across all users and nodes.</small></p>
+    </div>
+
+    <div class="box">
+        <h2>Channel Counter</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button id="channel-dec-btn">-</button>
+            <span id="channel-counter-val" style="font-size: 3rem; font-weight: bold; margin: 0 20px;">0</span>
+            <button id="channel-inc-btn">+</button>
+        </div>
+        <p><small>Shared among users in this specific session.</small></p>
+    </div>
+
+    <div class="box">
+        <h2>User-Specific Counter (Simulated)</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button id="user-dec-btn">-</button>
+            <span id="user-counter-val" style="font-size: 3rem; font-weight: bold; margin: 0 20px;">0</span>
+            <button id="user-inc-btn">+</button>
+        </div>
+        <p><small>Synchronized only to your simulated user ID (<span id="user-id-display"></span>).</small></p>
+    </div>
+
+    <div class="box">
+        <h2>Server-Local Counter (Node)</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span id="node-counter-val" style="font-size: 3rem; font-weight: bold; margin: 0 20px;">0</span>
+        </div>
+        <p><small>Pushed from the specific server node you are connected to. Does not sync across Redis.</small></p>
+    </div>
+    
+    <div class="box">
+        <h2>Private State Probe</h2>
+        <button id="probe-btn">Attempt to Read Private State</button>
+        <p id="probe-result" style="color: red; font-weight: bold;"></p>
+        <p><small>The server keeps `private:secret` hidden. Clients cannot read it.</small></p>
     </div>
 
     <!-- We import our frontend app as a module -->

@@ -29,20 +29,29 @@ const usp = new USPServer(adapter);
 app.post('/api/usp/sync', (req, res) => usp.handleSync(req, res));
 app.get('/api/usp/subscribe', (req, res) => usp.handleSubscribe(req, res));
 
-// Increment counter on each page visit
+// Increment counters on each page visit
 app.use(async (req, res, next) => {
     if (req.path === '/' || req.path === '/index.html') {
-        const state = await adapter.getState('cluster_demo');
-        const currentVal = state.counter || 0;
-        const newVal = currentVal + 1;
+        // Use the new DX methods that abstract away internal storage keys
         
-        const hlc = Date.now() + "-0";
-        await adapter.set('cluster_demo', 'counter', newVal, hlc);
+        // 1. Global State
+        const globalState = await usp.getState('cluster_demo', 'global');
+        const newVal = (globalState['counter'] || 0) + 1;
+        await usp.setState('cluster_demo', 'global', 'counter', newVal);
         
-        console.log(`[Worker ${process.env.PORT}] 🟢 Page visited! Incremented counter to ${newVal}`);
+        // 2. Private State (Server-only)
+        const privateSecret = `secret_${Date.now()}`;
+        await usp.setState('cluster_demo', 'private', 'secret', privateSecret);
         
-        // Broadcast to all connected clients on this specific node
-        usp.broadcast('cluster_demo', { op: 'SET', session: 'cluster_demo', key: 'counter', val: newVal, hlc });
+        console.log(`[Worker ${process.env.PORT}] 🟢 Page visited! Incremented global counter to ${newVal}`);
+        
+        // 3. Node-Local State (Ephemeral, specific to this instance)
+        // We bypass Redis adapter and just broadcast to clients on this node
+        for (const client of usp.clients) {
+            if (client.session === 'cluster_demo') {
+                client.res.write(`data: ${JSON.stringify({ op: 'SET', session: 'cluster_demo', scope: 'node', key: 'counter', val: newVal })}\n\n`);
+            }
+        }
     }
     next();
 });

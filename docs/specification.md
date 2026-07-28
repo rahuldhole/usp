@@ -77,12 +77,18 @@ USP uses a split transport model that works with any HTTP server, including serv
 
 ### Core Protocol Mechanics
 
-#### 1. Dual-Namespace Partitioning
+#### 1. State Scopes and Namespaces
 
-USP isolates variables into two memory domains within the shared heap:
+USP provides granular control over state visibility and persistence through namespace prefixes and domains. State is conceptually partitioned into six distinct scopes:
 
-* **`public` Domain:** Bi-directionally synchronized between the client runtime and the USP heap. Holds UI state and active user session variables.
-* **`private` Domain:** Strictly accessible by authenticated server processes. Holds security-sensitive variables (e.g., API keys, database credentials) that are never transmitted to the client.
+1. **Global State (`global:`)**: Shared across all users and channels in the entire application (e.g., total active user count, global announcements).
+2. **Channel / Session State (`channel:` or default)**: Shared only among users subscribed to a specific session or room (e.g., chat room messages, document state).
+3. **User-Specific State (`user:{id}:`)**: Synchronized only to the devices of a specific authenticated user (e.g., user preferences, private notifications).
+4. **Server-Local State (`node:`)**: Ephemeral state maintained by a single server node. Not synchronized to the distributed heap, but pushed to clients connected directly to that specific node (e.g., edge connection counts, server health).
+5. **Private / Secret State (`private:` Domain)**: Exists in the state heap but strictly accessible only by server-side processes. Never pushed to the client (e.g., API keys, auth tokens).
+6. **Ephemeral Client State**: Exists only in the client's local memory and is never synchronized to the server (handled locally by the frontend framework).
+
+The state heap enforces these domains using key prefixes within the session object.
 
 #### 2. Diff-Based State Synchronization
 

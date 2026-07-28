@@ -1,6 +1,6 @@
 import { validate_security } from '../wasm/usp_wasm.js';
 
-export function createUspProxy(session, target, client) {
+export function createUspProxy(session, scope, target, client) {
   return new Proxy(target, {
     set(obj, prop, value) {
       if (typeof prop !== 'string') return Reflect.set(obj, prop, value);
@@ -21,6 +21,7 @@ export function createUspProxy(session, target, client) {
       client.dispatchSync({
         op: 'SET',
         session,
+        scope,
         key: prop,
         val: value
       });
@@ -44,6 +45,7 @@ export function createUspProxy(session, target, client) {
       client.dispatchSync({
         op: 'DELETE',
         session,
+        scope,
         key: prop
       });
       return true;

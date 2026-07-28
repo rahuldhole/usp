@@ -53,7 +53,22 @@ export class USPClient {
   }
 
   connect(session) {
-    this.eventSource = new EventSource(`${this.endpoint}/subscribe?session=${session}`);
+    // Construct URL properly handling existing query parameters in endpoint
+    const url = new URL(`${this.endpoint}/subscribe`, window.location.origin);
+    url.searchParams.set('session', session);
+    
+    // If endpoint originally had query params, they need to be carried over or we just parse the base endpoint correctly.
+    // Since endpoint might be a relative path like '/api/usp?userId=123', URL constructor might fail if we don't provide a base.
+    // Actually, a safer way to append to a string that might have a query string:
+    let subscribeUrl = this.endpoint;
+    if (subscribeUrl.includes('?')) {
+      subscribeUrl = subscribeUrl.replace('?', '/subscribe?');
+      subscribeUrl += `&session=${session}`;
+    } else {
+      subscribeUrl += `/subscribe?session=${session}`;
+    }
+
+    this.eventSource = new EventSource(subscribeUrl);
     this.eventSource.onopen = () => {
       this.isOnline = true;
       this.flushOfflineQueue();
@@ -78,10 +93,13 @@ export class USPClient {
   }
 
   applyMutation(mutation) {
+    const scope = mutation.scope || 'global';
+    if (!this.state[scope]) this.state[scope] = {};
+
     if (mutation.op === 'SET') {
-      this.state[mutation.key] = mutation.val;
+      this.state[scope][mutation.key] = mutation.val;
     } else if (mutation.op === 'DELETE') {
-      delete this.state[mutation.key];
+      delete this.state[scope][mutation.key];
     }
     
     // Trigger re-render listeners
@@ -104,7 +122,14 @@ export class USPClient {
 
   async _sendPost(mutation) {
     try {
-      await fetch(`${this.endpoint}/sync`, {
+      let syncUrl = this.endpoint;
+      if (syncUrl.includes('?')) {
+        syncUrl = syncUrl.replace('?', '/sync?');
+      } else {
+        syncUrl += '/sync';
+      }
+      
+      await fetch(syncUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mutation)
@@ -124,10 +149,20 @@ export class USPClient {
     }
   }
 
-  useUsp(session, initialState = {}) {
-    this.state = { ...initialState };
-    this.connect(session);
-    return createUspProxy(session, this.state, this);
+  useUsp(session, options = {}) {
+    const scope = options.scope || 'global';
+    if (!this.state[scope]) {
+      this.state[scope] = { ...(options.initialState || {}) };
+    } else {
+      this.state[scope] = { ...this.state[scope], ...(options.initialState || {}) };
+    }
+    
+    // We only need to connect once per session
+    if (!this.eventSource) {
+      this.connect(session);
+    }
+    
+    return createUspProxy(session, scope, this.state[scope], this);
   }
 
   subscribe(fn) {
