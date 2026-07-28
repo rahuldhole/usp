@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  test:
+    desc: "Run tests for Rust USP core"
+    cmds:
+      - cargo test

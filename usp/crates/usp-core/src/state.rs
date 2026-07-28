@@ -1,0 +1,79 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(tag = "op")]
+pub enum Mutation {
+    #[serde(rename = "SET")]
+    Set {
+        session: String,
+        key: String,
+        val: Value,
+        #[serde(rename = "clientId")]
+        client_id: Option<String>,
+        hlc: Option<String>,
+    },
+    #[serde(rename = "DELETE")]
+    Delete {
+        session: String,
+        key: String,
+        #[serde(rename = "clientId")]
+        client_id: Option<String>,
+        hlc: Option<String>,
+    },
+    #[serde(rename = "EXEC")]
+    Exec {
+        session: String,
+        action: String,
+        #[serde(rename = "clientId")]
+        client_id: Option<String>,
+    },
+}
+
+pub struct DiffEngine;
+
+impl DiffEngine {
+    pub fn parse_mutation(payload: &str) -> Result<Mutation, serde_json::Error> {
+        serde_json::from_str(payload)
+    }
+
+    pub fn generate_sync_payload(mutation: &Mutation) -> Result<String, serde_json::Error> {
+        serde_json::to_string(mutation)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_parse_set_mutation() {
+        let payload = r#"{"op":"SET","session":"todos","key":"user.theme","val":"dark","clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
+        let mutation = DiffEngine::parse_mutation(payload).unwrap();
+        assert_eq!(
+            mutation,
+            Mutation::Set {
+                session: "todos".to_string(),
+                key: "user.theme".to_string(),
+                val: json!("dark"),
+                client_id: Some("k7f3x".to_string()),
+                hlc: Some("1700000000000-0000-node1".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_exec_mutation() {
+        let payload = r#"{"op":"EXEC","session":"todos","action":"clearCompleted"}"#;
+        let mutation = DiffEngine::parse_mutation(payload).unwrap();
+        assert_eq!(
+            mutation,
+            Mutation::Exec {
+                session: "todos".to_string(),
+                action: "clearCompleted".to_string(),
+                client_id: None,
+            }
+        );
+    }
+}

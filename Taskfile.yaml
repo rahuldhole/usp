@@ -1,9 +1,13 @@
 version: '3'
 
 includes:
-  # prototype:
-  #   taskfile: ./prototype/Taskfile.yaml
-  #   dir: ./prototype
+  usp:
+    taskfile: ./usp/Taskfile.yaml
+    dir: ./usp
+
+  todo:
+    taskfile: ./examples/todo-js/Taskfile.yaml
+    dir: ./examples/todo-js
 
 tasks:
   default:

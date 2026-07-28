@@ -10,7 +10,7 @@ export function createUspProxy(session, targetObj, manager) {
       // Update local memory cache immediately
       target[prop] = value;
       
-      // Dispatch sync to the manager (Server writes to Redis, Client writes to WebSocket)
+      // Dispatch sync to the manager (Server writes to storage, Client writes via HTTP POST)
       manager.dispatchSync(session, prop, value);
       
       return true;

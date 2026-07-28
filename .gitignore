@@ -29,3 +29,12 @@ env/
 *.db
 
 *.tmp
+# Rust
+target/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+
