@@ -7,7 +7,7 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@rahuldhole/usp": "file:../../usp/bindings/js",
+    "@rahuldhole/usp": "link:../../usp/bindings/ts",
     "cors": "^2.8.6",
     "express": "^4.19.2"
   }
