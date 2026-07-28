@@ -32,7 +32,7 @@ The compiled binary targets two runtime interfaces:
                  ▼                                                             ▼
   ┌─────────────────────────────┐                               ┌─────────────────────────────┐
   │ JavaScript / TypeScript     │                               │ Foreign Language Bindings   │
-  │ - Browser WebSockets        │                               │ - Go (cgo)                  │
+  │ - Browser SSE + HTTP POST   │                               │ - Go (cgo)                  │
   │ - Node.js / Bun             │                               │ - Python (cffi / PyO3)      │
   │ - Cloudflare Workers / Edge │                               │ - Swift (C-Interop)         │
   └─────────────────────────────┘                               └─────────────────────────────┘
@@ -83,7 +83,7 @@ usp-protocol/
 
 ### Excluded from `usp-core` (Delegated to Host Runtimes)
 
-* **Network I/O:** The Rust core does not open TCP sockets or WebSocket connections directly. The host runtime (JS, Go, Python) passes raw incoming bytes/text into `usp-core` and receives outbound bytes to transmit over the network.
+* **Network I/O:** The Rust core does not open TCP sockets or HTTP connections directly. The host runtime (JS, Go, Python) passes raw incoming bytes/text into `usp-core` and receives outbound bytes to transmit over the network.
 * **Redis Driver Communication:** The host worker handles physical TCP network connections to Redis; `usp-core` generates the command parameters (e.g., `HSET session:123 key val`).
 
 ---
@@ -138,7 +138,7 @@ For native server backends and mobile SDKs:
    │
 [Host Transport]
    │
-   ├── 6. WebSocket streams frame over network to Edge Worker
+   ├── 6. HTTP POST sends mutation frame over network to Server
    │
 [Server Edge Worker]
    │

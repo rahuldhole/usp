@@ -1,15 +1,9 @@
 version: '3'
 
 includes:
-  go:
-    taskfile: ./examples/go/Taskfile.yaml
-    dir: ./examples/go
-  js:
-    taskfile: ./examples/js/Taskfile.yaml
-    dir: ./examples/js
-  nuxt:
-    taskfile: ./examples/nuxt/Taskfile.yaml
-    dir: ./examples/nuxt
+  # prototype:
+  #   taskfile: ./prototype/Taskfile.yaml
+  #   dir: ./prototype
 
 tasks:
   default:

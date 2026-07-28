@@ -27,3 +27,5 @@ env/
 *.db-shm
 *.db-wal
 *.db
+
+*.tmp
