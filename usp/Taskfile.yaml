@@ -5,3 +5,9 @@ tasks:
     desc: "Run tests for Rust USP core"
     cmds:
       - cargo test
+
+  build:wasm:
+    desc: "Build WebAssembly bindings"
+    dir: crates/usp-wasm
+    cmds:
+      - wasm-pack build --target web --out-dir ../../bindings/js/wasm
