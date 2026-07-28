@@ -2,11 +2,11 @@ version: '3'
 
 tasks:
   install:
-    desc: "Install dependencies for todo-js example"
+    desc: "C.1: Install dependencies for todo-js example"
     cmds:
       - pnpm install
 
   start:
-    desc: "Start todo-js example server"
+    desc: "C.2: Start todo-js example server"
     cmds:
       - pnpm start

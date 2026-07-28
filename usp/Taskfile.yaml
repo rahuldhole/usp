@@ -2,12 +2,12 @@ version: '3'
 
 tasks:
   test:
-    desc: "Run tests for Rust USP core"
+    desc: "B.1: Run tests for Rust USP core"
     cmds:
       - cargo test
 
   build:wasm:
-    desc: "Build WebAssembly bindings"
+    desc: "B.2: Build WebAssembly bindings"
     dir: crates/usp-wasm
     cmds:
       - wasm-pack build --target web --out-dir ../../bindings/js/wasm

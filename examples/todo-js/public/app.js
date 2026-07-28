@@ -1,93 +1,78 @@
-import USP from '/usp/index.js';
+import { USPClient, initWasm } from '/usp-sdk/src/index.js';
 
-// Initialize USP Client
-const client = await USP.initClient({ baseUrl: '/api/usp' });
-const todosState = USP.useUsp('todos');
+async function main() {
+    // 1. Initialize WASM Protocol Engine
+    await initWasm('/usp-sdk/wasm/usp_wasm_bg.wasm');
 
-const form = document.getElementById('todo-form');
-const input = document.getElementById('todo-input');
-const list = document.getElementById('todo-list');
-const countEl = document.getElementById('task-count');
-const clearBtn = document.getElementById('clear-completed');
-
-function render() {
-  list.innerHTML = '';
-  const target = todosState.__target || todosState;
-  const keys = Object.keys(target);
-
-  let activeCount = 0;
-
-  if (keys.length === 0) {
-    list.innerHTML = '<div class="empty-state">No tasks yet. Add one above!</div>';
-    countEl.textContent = '0 items remaining';
-    return;
-  }
-
-  keys.forEach(key => {
-    const item = target[key];
-    if (!item) return;
-
-    if (!item.completed) activeCount++;
-
-    const li = document.createElement('li');
-    li.className = `todo-item ${item.completed ? 'completed' : ''}`;
+    // 2. Initialize USP Client Transport
+    const client = new USPClient('http://localhost:3000/api/usp');
     
-    li.innerHTML = `
-      <div class="todo-content">
-        <input type="checkbox" class="checkbox" ${item.completed ? 'checked' : ''}>
-        <span class="todo-text">${escapeHtml(item.title)}</span>
-      </div>
-      <button class="delete-btn" aria-label="Delete todo">&times;</button>
-    `;
+    // 3. Connect to "todos" session and get Proxy
+    const state = client.useUsp('todos', {});
+    
+    // UI Elements
+    const listEl = document.getElementById('todo-list');
+    const inputEl = document.getElementById('todo-input');
+    const addBtn = document.getElementById('add-btn');
+    const clearBtn = document.getElementById('clear-btn');
 
-    // Toggle completed status
-    const checkbox = li.querySelector('.checkbox');
-    checkbox.addEventListener('change', () => {
-      todosState[key] = { ...item, completed: checkbox.checked };
+    // Render loop triggered on state changes
+    client.subscribe((latestState) => {
+        listEl.innerHTML = '';
+        Object.entries(latestState).forEach(([id, todo]) => {
+            const li = document.createElement('li');
+            
+            const span = document.createElement('span');
+            span.textContent = todo.text;
+            if (todo.completed) span.className = 'completed';
+            
+            const controls = document.createElement('div');
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.textContent = todo.completed ? 'Undo' : 'Complete';
+            toggleBtn.onclick = () => {
+                // Modifying state natively through proxy triggers Sync!
+                state[id] = { ...todo, completed: !todo.completed };
+            };
+            
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '❌';
+            delBtn.className = 'danger';
+            delBtn.onclick = () => {
+                // Deleting property triggers Sync!
+                delete state[id];
+            };
+
+            controls.appendChild(toggleBtn);
+            controls.appendChild(delBtn);
+            
+            li.appendChild(span);
+            li.appendChild(controls);
+            listEl.appendChild(li);
+        });
     });
 
-    // Delete item
-    const deleteBtn = li.querySelector('.delete-btn');
-    deleteBtn.addEventListener('click', () => {
-      delete todosState[key];
-    });
+    // Add new Todo
+    addBtn.onclick = () => {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        
+        const id = 'task_' + Math.random().toString(36).substr(2, 9);
+        
+        // Proxy assignment intercept -> Rust engine -> Network -> Database!
+        state[id] = { text, completed: false };
+        
+        inputEl.value = '';
+    };
 
-    list.appendChild(li);
-  });
-
-  countEl.textContent = `${activeCount} item${activeCount === 1 ? '' : 's'} remaining`;
+    // Server-side action
+    clearBtn.onclick = () => {
+        client.dispatchSync({
+            op: 'EXEC',
+            session: 'todos',
+            action: 'clearCompleted'
+        });
+    };
 }
 
-function escapeHtml(str) {
-  return str.replace(/[&<>'"]/g, 
-    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-  );
-}
-
-// React to USP sync events from server/other clients
-USP.onSync(() => {
-  render();
-});
-
-// Form submit -> Add Todo
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const title = input.value.trim();
-  if (!title) return;
-
-  const id = `item_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  todosState[id] = { id, title, completed: false };
-
-  input.value = '';
-  render();
-});
-
-// Clear completed button -> Zero-Payload EXEC Trigger
-clearBtn.addEventListener('click', () => {
-  client.exec('todos', 'clearCompleted', () => {
-    console.log('[USP Client] Clear completed action triggered via EXEC');
-  });
-});
-
-// Initial render
-render();
+main().catch(console.error);

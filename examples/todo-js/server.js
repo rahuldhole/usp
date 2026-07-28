@@ -1,66 +1,48 @@
 import express from 'express';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { USPServer, MemoryAdapter } from 'usp-protocol';
+import { USPServer, MemoryAdapter, initSync } from '@rahuldhole/usp';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs';
+import cors from 'cors';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize WASM synchronously for Node environment
+const wasmBuffer = fs.readFileSync(path.join(__dirname, '../../usp/bindings/js/wasm/usp_wasm_bg.wasm'));
+initSync(wasmBuffer);
+
 const app = express();
+app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/usp', express.static(path.join(__dirname, '../../usp')));
 
-// Initialize USP Server
+// Initialize USP with Memory Storage Adapter
 const adapter = new MemoryAdapter();
-const uspServer = new USPServer({ adapter });
+const usp = new USPServer(adapter);
 
-await uspServer.start();
-
-// Server action: Clear all completed items (Demonstrates Zero-Payload EXEC Trigger)
-uspServer.registerAction('clearCompleted', async (session) => {
-  const state = await uspServer.getSessionState(session);
-  for (const key in state) {
-    const entry = state[key];
-    const val = entry?.value || entry;
-    if (val && val.completed) {
-      await uspServer.syncState(session, key, null);
+// Register EXEC server action for "clearCompleted"
+usp.registerAction("clearCompleted", async (session, db, mutation) => {
+    console.log(`Executing server action clearCompleted for session: ${session}`);
+    const state = await db.getState(session);
+    for (const [key, val] of Object.entries(state)) {
+        if (val.completed) {
+            await db.delete(session, key, mutation.hlc);
+            usp.broadcast(session, { op: 'DELETE', session, key });
+        }
     }
-  }
-  return { status: 'cleared' };
 });
 
-// Endpoint: HTTP POST for client->server mutations & EXEC triggers
-app.post('/api/usp/sync', async (req, res) => {
-  const result = await uspServer.handlePost(req.body);
-  if (result.status === 403) {
-    return res.status(403).json(result);
-  }
-  res.json(result);
-});
+// API Routes
+app.post('/api/usp/sync', (req, res) => usp.handleSync(req, res));
+app.get('/api/usp/subscribe', (req, res) => usp.handleSubscribe(req, res));
 
-// Endpoint: GET SSE stream for server->client push
-app.get('/api/usp/subscribe', async (req, res) => {
-  const session = req.query.session || 'todos';
+// Static files
+app.use(express.static('public'));
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const send = (event, data) => {
-    res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
-
-  const { unsubscribe } = await uspServer.subscribe(session, send);
-
-  req.on('close', () => {
-    unsubscribe();
-  });
-});
+// Serve the local USP bindings directly to the browser for testing (so we don't need a bundler)
+app.use('/usp-sdk', express.static(path.join(__dirname, '../../usp/bindings/js')));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 USP Todo CRUD Server listening on http://localhost:${PORT}`);
+  console.log(`✅ Todo JS app (USP powered) running on http://localhost:${PORT}`);
 });

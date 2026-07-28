@@ -14,10 +14,11 @@ tasks:
     cmds: [ "task -l" ]
 
   up:
-    desc: "Start infrastructure (Redis)"
+    desc: "A.1: Start infrastructure (Redis)"
     cmds:
       - docker compose -f infra/docker-compose.yaml up -d
+
   down:
-    desc: "Stop infrastructure"
+    desc: "A.2: Stop infrastructure"
     cmds:
       - docker compose -f infra/docker-compose.yaml down
