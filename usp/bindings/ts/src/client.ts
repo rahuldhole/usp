@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createUspProxy } from './proxy.js';
+import { checkMaxSize } from './utils.js';
 
 export class USPClient {
   endpoint: string;
@@ -12,6 +13,7 @@ export class USPClient {
   offlineQueue: any[];
   isOnline: boolean;
   channels: Set<string>;
+  _connectTimer: any;
 
   constructor(endpoint: string) {
     this.endpoint = endpoint;
@@ -63,7 +65,18 @@ export class USPClient {
     }
   }
 
+  _scheduleConnect() {
+    if (this._connectTimer) clearTimeout(this._connectTimer);
+    this._connectTimer = setTimeout(() => {
+      this.connect(Array.from(this.channels));
+    }, 10);
+  }
+
   connect(channels: string[]) {
+    if (this.eventSource) {
+      this.eventSource.close();
+    }
+
     let subscribeUrl = this.endpoint;
     if (subscribeUrl.includes('?')) {
       subscribeUrl = subscribeUrl.replace('?', '/subscribe?');
@@ -97,6 +110,14 @@ export class USPClient {
   }
 
   applyMutation(mutation: any) {
+    if (mutation.op === 'INIT') {
+      const channel = mutation.session;
+      if (!this.state[channel]) this.state[channel] = {};
+      Object.assign(this.state[channel], mutation.state);
+      this.notifyListeners();
+      return;
+    }
+
     const channel = mutation.options?.channel || mutation.key;
     if (!this.state[channel]) this.state[channel] = {};
 
@@ -163,9 +184,7 @@ export class USPClient {
       this.state[channel][key] = options.initialState;
     }
 
-    if (!this.eventSource) {
-      this.connect(Array.from(this.channels));
-    }
+    this._scheduleConnect();
 
     const self = this;
     return {
@@ -173,11 +192,22 @@ export class USPClient {
         return self.state[channel][key];
       },
       set value(val) {
+        checkMaxSize(val, options);
         self.state[channel][key] = val;
         self.dispatchSync({ op: 'SET', key, val, options });
         self.notifyListeners();
       }
     };
+  }
+
+  useUsp(channel: string, options: any = {}) {
+    if (!this.channels) this.channels = new Set();
+    this.channels.add(channel);
+    if (!this.state[channel]) this.state[channel] = {};
+    
+    this._scheduleConnect();
+    
+    return createUspProxy(channel, options, this.state[channel], this);
   }
 
   subscribe(fn: any) {

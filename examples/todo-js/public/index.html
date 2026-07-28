@@ -71,6 +71,19 @@
         <button id="inc-btn" style="font-size: 1.5rem; padding: 5px 15px;">+</button>
     </div>
 
+    <hr style="margin: 40px 0;">
+
+    <h2>📢 Global Notice Board (Max Size: 35 bytes)</h2>
+    <p style="color: #666; font-size: 0.9rem;">Test USP standardized size restrictions and live error interception by submitting short vs. oversized notices.</p>
+    <div style="margin-bottom: 10px;">
+        <input type="text" id="notice-input" placeholder="Type notice..." style="width: 280px; padding: 6px;">
+        <button id="notice-btn" style="padding: 6px 12px;">Update Notice</button>
+    </div>
+    <div style="padding: 10px; background: #f4f4f4; border-radius: 4px; margin-top: 10px;">
+        <strong>Current Notice: </strong> <span id="notice-val" style="color: #2b7489;">Loading...</span>
+    </div>
+    <div id="notice-error" style="color: #d9534f; font-size: 0.9rem; margin-top: 8px; font-weight: bold;"></div>
+
     <!-- We import our frontend app as a module -->
     <script type="module" src="./app.js"></script>
 </body>

@@ -1,4 +1,4 @@
-use usp_core::{DiffEngine, Hlc, LwwMap, SecurityPolicy};
+use usp_core::{DiffEngine, Hlc, LwwMap, SecurityPolicy, UspError};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -20,7 +20,7 @@ pub fn process_sync_frame(payload: &str) -> Result<JsValue, JsValue> {
         Ok(mutation) => match &mutation {
             usp_core::Mutation::Set { key, .. } | usp_core::Mutation::Delete { key, .. } => {
                 if !SecurityPolicy::is_client_mutation_allowed(key) {
-                    Err(JsValue::from_str("Forbidden: Private namespace write attempt"))
+                    Err(JsValue::from_str(&UspError::SecurityForbidden("Forbidden: Private namespace write attempt".to_string()).to_string()))
                 } else {
                     Ok(JsValue::from_str(&serde_json::to_string(&mutation).unwrap()))
                 }
@@ -83,7 +83,7 @@ impl WasmHlc {
     pub fn receive(&mut self, remote_hlc: &str, current_time_ms: Option<f64>) -> Result<(), JsValue> {
         self.inner
             .receive(remote_hlc, current_time_ms.map(|val| val as u64))
-            .map_err(|err| JsValue::from_str(err))
+            .map_err(|err| JsValue::from_str(&err.to_string()))
     }
 
     #[wasm_bindgen]
@@ -93,8 +93,8 @@ impl WasmHlc {
 
     #[wasm_bindgen(js_name = "compare")]
     pub fn compare(a_str: &str, b_str: &str) -> Result<i32, JsValue> {
-        let a = Hlc::parse(a_str).map_err(|e| JsValue::from_str(e))?;
-        let b = Hlc::parse(b_str).map_err(|e| JsValue::from_str(e))?;
+        let a = Hlc::parse(a_str).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let b = Hlc::parse(b_str).map_err(|e| JsValue::from_str(&e.to_string()))?;
         Ok(match a.cmp(&b) {
             std::cmp::Ordering::Less => -1,
             std::cmp::Ordering::Equal => 0,

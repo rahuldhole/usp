@@ -1,4 +1,4 @@
-import { USPClient } from '/usp-sdk/src/client.js';
+import { USPClient } from '/usp-sdk/dist/client.js';
 import initWasm from '/usp-sdk/wasm/usp_wasm.js';
 
 async function main() {
@@ -21,7 +21,7 @@ async function main() {
     client.subscribe((latestState) => {
         listEl.innerHTML = '';
         Object.entries(latestState).forEach(([id, todo]) => {
-            if (id === 'visit_counter') return; // Skip counter state
+            if (id === 'visit_counter' || id === 'global_notice') return; // Skip counter and notice state
 
             const li = document.createElement('li');
             
@@ -95,6 +95,36 @@ async function main() {
     
     decBtn.onclick = () => {
         state.visit_counter = (state.visit_counter || 0) - 1;
+    };
+
+    // --- GLOBAL NOTICE BOARD EXAMPLE (maxSize Validation) ---
+    const noticeState = client.bindState('global_notice', { channel: 'todos', maxSize: 35 });
+    const noticeValEl = document.getElementById('notice-val');
+    const noticeInputEl = document.getElementById('notice-input');
+    const noticeBtn = document.getElementById('notice-btn');
+    const noticeErrorEl = document.getElementById('notice-error');
+
+    client.subscribe((latestState) => {
+        if (latestState.global_notice !== undefined) {
+            noticeValEl.textContent = latestState.global_notice;
+        }
+    });
+
+    noticeBtn.onclick = () => {
+        const text = noticeInputEl.value;
+        noticeErrorEl.textContent = '';
+        try {
+            // Attempting to set an oversized payload (> 35 bytes) will trigger USP validation exception!
+            noticeState.value = text;
+            noticeInputEl.value = '';
+            noticeErrorEl.style.color = '#28a745';
+            noticeErrorEl.textContent = '✅ Notice broadcasted successfully!';
+            setTimeout(() => { if (noticeErrorEl.textContent && noticeErrorEl.textContent.startsWith('✅')) noticeErrorEl.textContent = ''; }, 3000);
+        } catch (err) {
+            console.error("USP State Error:", err);
+            noticeErrorEl.style.color = '#d9534f';
+            noticeErrorEl.textContent = `🚫 ${err.message || err}`;
+        }
     };
 }
 

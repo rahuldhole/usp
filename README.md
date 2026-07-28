@@ -21,9 +21,22 @@ USP natively understands that not all state is created equal. Instead of rigid s
   channel: 'string', // Groups the state logically. Defaults to the variable name.
   password: 'string', // Optional string for securing access to private states.
   access: 'global | server | client', // 'global' (everyone), 'server' (private), 'client' (ephemeral). Defaults to 'global'.
-  mode: 'duplex | simplex-server-to-client | simplex-client-to-server | half-duplex' // Sync directionality. Defaults to 'duplex'.
+  mode: 'duplex | simplex-server-to-client | simplex-client-to-server | half-duplex', // Sync directionality. Defaults to 'duplex'.
+  maxSize: number // Maximum allowed size of the value in bytes (enforced synchronously in client/server SDK and verified by the Rust engine).
 }
 ```
+
+## Standardized Error Handling & Validation
+
+USP incorporates structured, uniform error handling across its entire stack—from the Rust core engine and WebAssembly binaries up to the TypeScript/JavaScript SDKs. All operational exceptions follow standardized error codes:
+
+- `ERR_PAYLOAD_TOO_LARGE`: Value size in bytes exceeds the maximum specified by `maxSize`.
+- `ERR_SECURITY_FORBIDDEN`: Illegal attempt to read or mutate private (`server`) namespaces from an untrusted client.
+- `ERR_SERIALIZATION`: Malformed JSON or incompatible datatype serialization.
+- `ERR_INVALID_HLC`: Invalid Hybrid Logical Clock formatting or out-of-order clock synchronization.
+- `ERR_INVALID_MUTATION`: Unrecognized operational opcode or missing parameters.
+
+When setting constraints like `maxSize: 35`, values are checked instantly in JavaScript upon property assignment for immediate, synchronous UI feedback, while the Rust backend engine double-validates incoming synchronization frames to guarantee database and network protection.
 
 ## Developer Experience (DX)
 
@@ -90,4 +103,4 @@ To compile the Rust core into WASM:
 task build:wasm
 ```
 
-This will automatically build the WASM bundle for the web target and place it in `usp/bindings/js/wasm`.
+This will automatically build the WASM bundle for the web target and place it in `usp/bindings/ts/wasm`.

@@ -7,6 +7,8 @@ pub struct StateConfig {
     pub password: Option<String>,
     pub access: Option<String>,
     pub mode: Option<String>,
+    #[serde(rename = "maxSize", alias = "max_size", default, skip_serializing_if = "Option::is_none")]
+    pub max_size: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -38,15 +40,35 @@ pub enum Mutation {
     },
 }
 
+impl Mutation {
+    pub fn validate(&self) -> crate::Result<()> {
+        if let Mutation::Set { val, options: Some(options), .. } = self {
+            if let Some(max_size) = options.max_size {
+                let actual_size = match val {
+                    Value::String(s) => s.len(),
+                    other => serde_json::to_vec(other).map(|v| v.len()).unwrap_or(0),
+                };
+                if actual_size > max_size {
+                    return Err(crate::UspError::PayloadTooLarge { max_size, actual_size });
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 pub struct DiffEngine;
 
 impl DiffEngine {
-    pub fn parse_mutation(payload: &str) -> Result<Mutation, serde_json::Error> {
-        serde_json::from_str(payload)
+    pub fn parse_mutation(payload: &str) -> crate::Result<Mutation> {
+        let mutation: Mutation = serde_json::from_str(payload)?;
+        mutation.validate()?;
+        Ok(mutation)
     }
 
-    pub fn generate_sync_payload(mutation: &Mutation) -> Result<String, serde_json::Error> {
-        serde_json::to_string(mutation)
+    pub fn generate_sync_payload(mutation: &Mutation) -> crate::Result<String> {
+        mutation.validate()?;
+        Ok(serde_json::to_string(mutation)?)
     }
 
     pub fn apply_mutation_to_state(
@@ -69,7 +91,7 @@ impl DiffEngine {
         let (key, options) = match mutation {
             Mutation::Set { key, options, .. } => (key, options),
             Mutation::Delete { key, options, .. } => (key, options),
-            Mutation::Exec { options, .. } => return format!("exec"), // Not stored
+            Mutation::Exec { .. } => return format!("exec"), // Not stored
         };
         
         let channel = options.as_ref().and_then(|o| o.channel.clone()).unwrap_or_else(|| key.clone());
@@ -107,6 +129,7 @@ mod tests {
                     access: Some("global".to_string()),
                     password: None,
                     mode: None,
+                    max_size: None,
                 }),
                 client_id: Some("k7f3x".to_string()),
                 hlc: Some("1700000000000-0000-node1".to_string()),
@@ -127,9 +150,20 @@ mod tests {
                     access: None,
                     password: None,
                     mode: None,
+                    max_size: None,
                 }),
                 client_id: None,
             }
         );
+    }
+
+    #[test]
+    fn test_max_size_validation() {
+        let valid = r#"{"op":"SET","key":"short","val":"hello","options":{"maxSize":10}}"#;
+        assert!(DiffEngine::parse_mutation(valid).is_ok());
+
+        let invalid = r#"{"op":"SET","key":"long","val":"this is string is longer than 10 bytes","options":{"maxSize":10}}"#;
+        let res = DiffEngine::parse_mutation(invalid);
+        assert!(matches!(res, Err(crate::UspError::PayloadTooLarge { max_size: 10, .. })));
     }
 }

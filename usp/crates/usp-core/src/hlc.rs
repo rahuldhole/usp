@@ -76,7 +76,7 @@ impl Hlc {
     }
 
     /// Updates local clock upon receiving a remote HLC formatted string.
-    pub fn receive(&mut self, remote_hlc_str: &str, current_time_ms: Option<u64>) -> Result<(), &'static str> {
+    pub fn receive(&mut self, remote_hlc_str: &str, current_time_ms: Option<u64>) -> crate::Result<()> {
         let remote = Hlc::parse(remote_hlc_str)?;
         let now = current_time_ms.unwrap_or_else(system_time_ms);
         self.receive_hlc(&remote, now);
@@ -89,13 +89,13 @@ impl Hlc {
     }
 
     /// Parses an HLC string in the format `<timestamp_ms>-<counter_base36>-<node_id>`.
-    pub fn parse(hlc_str: &str) -> Result<Self, &'static str> {
+    pub fn parse(hlc_str: &str) -> crate::Result<Self> {
         let parts: Vec<&str> = hlc_str.splitn(3, '-').collect();
         if parts.len() != 3 {
-            return Err("Invalid HLC format, expected <timestamp>-<counter>-<node_id>");
+            return Err(crate::UspError::InvalidHlc("Invalid HLC format, expected <timestamp>-<counter>-<node_id>".to_string()));
         }
-        let timestamp_ms = parts[0].parse::<u64>().map_err(|_| "Invalid timestamp in HLC")?;
-        let counter = u32::from_str_radix(parts[1], 36).map_err(|_| "Invalid base36 counter in HLC")?;
+        let timestamp_ms = parts[0].parse::<u64>().map_err(|_| crate::UspError::InvalidHlc("Invalid timestamp in HLC".to_string()))?;
+        let counter = u32::from_str_radix(parts[1], 36).map_err(|_| crate::UspError::InvalidHlc("Invalid base36 counter in HLC".to_string()))?;
         let node_id = parts[2].to_string();
         Ok(Self {
             timestamp_ms,

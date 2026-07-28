@@ -1,6 +1,7 @@
 import { validate_security } from '../wasm/usp_wasm.js';
+import { checkMaxSize } from './utils.js';
 
-export function createUspProxy(session, scope, target, client) {
+export function createUspProxy(session: string, options: any = {}, target: any, client: any) {
   return new Proxy(target, {
     set(obj, prop, value) {
       if (typeof prop !== 'string') return Reflect.set(obj, prop, value);
@@ -9,6 +10,8 @@ export function createUspProxy(session, scope, target, client) {
       if (!validate_security(prop)) {
         throw new Error(`Forbidden: Cannot mutate private namespace key '${prop}' from client`);
       }
+
+      checkMaxSize(value, options);
 
       obj[prop] = value;
       
@@ -21,9 +24,9 @@ export function createUspProxy(session, scope, target, client) {
       client.dispatchSync({
         op: 'SET',
         session,
-        scope,
         key: prop,
-        val: value
+        val: value,
+        options: Object.assign({ channel: session }, options)
       });
       return true;
     },
@@ -45,8 +48,8 @@ export function createUspProxy(session, scope, target, client) {
       client.dispatchSync({
         op: 'DELETE',
         session,
-        scope,
-        key: prop
+        key: prop,
+        options: Object.assign({ channel: session }, options)
       });
       return true;
     }

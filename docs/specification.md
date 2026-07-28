@@ -86,7 +86,8 @@ USP provides ultimate control over state synchronization through a configuration
   channel: 'string', // Groups the state logically. Defaults to the variable name. Replaces the concept of a session or a user prefix.
   password: 'string', // Optional string for securing access to private states.
   access: 'global | server | client', // Access control: 'global' (everyone), 'server' (private), 'client' (ephemeral/node-local). Defaults to 'global'.
-  mode: 'duplex | simplex-server-to-client | simplex-client-to-server | half-duplex' // Sync directionality. Defaults to 'duplex'.
+  mode: 'duplex | simplex-server-to-client | simplex-client-to-server | half-duplex', // Sync directionality. Defaults to 'duplex'.
+  maxSize: number // Maximum allowed size of the value in bytes (UTF-8 byte length for strings, serialized JSON size for objects/arrays).
 }
 ```
 
@@ -141,6 +142,20 @@ Upon receipt, the server process reads the session directly from the shared memo
 #### 5. Automatic Ephemeral Lifecycle Management
 
 Session memory is volatile by design. The heap maintains an active **Time-To-Live (TTL)** counter (e.g., 1800s) on every session key. When client nodes disconnect or timeout, the memory heap automatically garbage-collects the state, preventing memory leaks without manual cleanup code.
+
+#### 6. Standardized Error Protocol & Size Enforcement
+
+USP establishes a unified, structured error hierarchy to guarantee reliable state validation across multi-language runtime boundaries. When any mutation frame fails security validation, clock checks, or size limitations, the engine halts state execution and throws an explicit protocol error:
+
+| Protocol Error Code | Description | Enforcement Layer |
+| :--- | :--- | :--- |
+| `ERR_PAYLOAD_TOO_LARGE` | Value payload exceeds the maximum byte length defined by `maxSize` (or `max_size`). | Client/Server SDK (synchronous throw) & Rust Core |
+| `ERR_SECURITY_FORBIDDEN` | Unauthorized client mutation attempted against a restricted `access: 'server'` namespace. | Rust Core (`usp-core` / WASM) |
+| `ERR_SERIALIZATION` | Malformed JSON string or failure during payload deserialization. | Rust Core (`usp-core` / WASM) |
+| `ERR_INVALID_HLC` | Corrupted Hybrid Logical Clock string timestamp or counter mismatch. | Rust Core (`usp-core` / WASM) |
+| `ERR_INVALID_MUTATION` | Missing required operational field (`op`, `key`, `val`) or malformed opcode. | Rust Core (`usp-core` / WASM) |
+
+**Dual-Layer DX Validation:** Setting `maxSize: 1024` on a state variable allows client libraries to calculate UTF-8 byte length via native encoders (e.g., `TextEncoder` in JS/WASM or native byte arrays in C++/Swift/Rust) immediately upon variable assignment. This provides instant error feedback before incurring network latency, while the server engine independently verifies frame lengths to defend against bypassed client controls or network abuse.
 
 ---
 

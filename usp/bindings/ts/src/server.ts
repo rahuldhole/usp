@@ -1,4 +1,5 @@
 import { process_sync_frame, get_storage_key, should_broadcast } from '../wasm/usp_wasm.js';
+import { checkMaxSize } from './utils.js';
 
 export class USPServer {
   adapter: any;
@@ -60,9 +61,9 @@ export class USPServer {
       }
 
       res.status(200).json({ status: 'ok', success });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Sync error:", err);
-      res.status(400).json({ error: err.message });
+      res.status(400).json({ error: typeof err === 'string' ? err : (err?.message || String(err)) });
     }
   }
 
@@ -132,6 +133,7 @@ export class USPServer {
 
   // DX: Set state for a specific config and automatically broadcast it
   async setState(key: string, val: any, options: any = {}) {
+    checkMaxSize(val, options);
     const channel = options.channel || key;
     
     const mutation: any = { op: 'SET', key, val, options };

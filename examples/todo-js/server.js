@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize WASM synchronously for Node environment
-const wasmBuffer = fs.readFileSync(path.join(__dirname, '../../usp/bindings/js/wasm/usp_wasm_bg.wasm'));
+const wasmBuffer = fs.readFileSync(path.join(__dirname, '../../usp/bindings/ts/wasm/usp_wasm_bg.wasm'));
 initSync({ module: wasmBuffer });
 
 const app = express();
@@ -36,8 +36,9 @@ usp.registerAction("clearCompleted", async (session, db, mutation) => {
 app.post('/api/usp/sync', (req, res) => usp.handleSync(req, res));
 app.get('/api/usp/subscribe', (req, res) => usp.handleSubscribe(req, res));
 
-// Seed the initial value for our simple visit counter in the 'todos' session
+// Seed initial values in the 'todos' session
 adapter.set('todos', 'visit_counter', 0, "0000000000000-0");
+adapter.set('todos', 'global_notice', 'Welcome! Max 35 bytes.', "0000000000000-0");
 
 // Increment visit counter on each page visit
 app.use(async (req, res, next) => {
@@ -60,7 +61,7 @@ app.use(async (req, res, next) => {
 app.use(express.static('public'));
 
 // Serve the local USP bindings directly to the browser for testing (so we don't need a bundler)
-app.use('/usp-sdk', express.static(path.join(__dirname, '../../usp/bindings/js')));
+app.use('/usp-sdk', express.static(path.join(__dirname, '../../usp/bindings/ts')));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
