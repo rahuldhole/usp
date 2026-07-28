@@ -52,20 +52,13 @@ export class USPClient {
     }
   }
 
-  connect(session) {
-    // Construct URL properly handling existing query parameters in endpoint
-    const url = new URL(`${this.endpoint}/subscribe`, window.location.origin);
-    url.searchParams.set('session', session);
-    
-    // If endpoint originally had query params, they need to be carried over or we just parse the base endpoint correctly.
-    // Since endpoint might be a relative path like '/api/usp?userId=123', URL constructor might fail if we don't provide a base.
-    // Actually, a safer way to append to a string that might have a query string:
+  connect(channels) {
     let subscribeUrl = this.endpoint;
     if (subscribeUrl.includes('?')) {
       subscribeUrl = subscribeUrl.replace('?', '/subscribe?');
-      subscribeUrl += `&session=${session}`;
+      subscribeUrl += `&channels=${channels.join(',')}`;
     } else {
-      subscribeUrl += `/subscribe?session=${session}`;
+      subscribeUrl += `/subscribe?channels=${channels.join(',')}`;
     }
 
     this.eventSource = new EventSource(subscribeUrl);
@@ -93,13 +86,13 @@ export class USPClient {
   }
 
   applyMutation(mutation) {
-    const scope = mutation.scope || 'global';
-    if (!this.state[scope]) this.state[scope] = {};
+    const channel = mutation.options?.channel || mutation.key;
+    if (!this.state[channel]) this.state[channel] = {};
 
     if (mutation.op === 'SET') {
-      this.state[scope][mutation.key] = mutation.val;
+      this.state[channel][mutation.key] = mutation.val;
     } else if (mutation.op === 'DELETE') {
-      delete this.state[scope][mutation.key];
+      delete this.state[channel][mutation.key];
     }
     
     // Trigger re-render listeners
@@ -149,20 +142,31 @@ export class USPClient {
     }
   }
 
-  useUsp(session, options = {}) {
-    const scope = options.scope || 'global';
-    if (!this.state[scope]) {
-      this.state[scope] = { ...(options.initialState || {}) };
-    } else {
-      this.state[scope] = { ...this.state[scope], ...(options.initialState || {}) };
+  bindState(key, options = {}) {
+    const channel = options.channel || key;
+    if (!this.channels) this.channels = new Set();
+    this.channels.add(channel);
+
+    if (!this.state[channel]) this.state[channel] = {};
+    if (options.initialState !== undefined && this.state[channel][key] === undefined) {
+      this.state[channel][key] = options.initialState;
     }
-    
-    // We only need to connect once per session
+
     if (!this.eventSource) {
-      this.connect(session);
+      this.connect(Array.from(this.channels));
     }
-    
-    return createUspProxy(session, scope, this.state[scope], this);
+
+    const self = this;
+    return {
+      get value() {
+        return self.state[channel][key];
+      },
+      set value(val) {
+        self.state[channel][key] = val;
+        self.dispatchSync({ op: 'SET', key, val, options });
+        self.notifyListeners();
+      }
+    };
   }
 
   subscribe(fn) {

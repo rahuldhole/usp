@@ -145,13 +145,13 @@ export class WasmLwwMap {
         return ret[0] !== 0;
     }
     /**
-     * @param {string} session
+     * @param {string | null | undefined} channel
      * @param {WasmLwwMap} old_map
      * @returns {any}
      */
-    computeDiff(session, old_map) {
-        const ptr0 = passStringToWasm0(session, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
+    computeDiff(channel, old_map) {
+        var ptr0 = isLikeNone(channel) ? 0 : passStringToWasm0(channel, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
         _assertClass(old_map, WasmLwwMap);
         const ret = wasm.wasmlwwmap_computeDiff(this.__wbg_ptr, ptr0, len0, old_map.__wbg_ptr);
         if (ret[2]) {
@@ -180,6 +180,31 @@ if (Symbol.dispose) WasmLwwMap.prototype[Symbol.dispose] = WasmLwwMap.prototype.
 
 /**
  * @param {string} payload
+ * @returns {string}
+ */
+export function get_storage_key(payload) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const ptr0 = passStringToWasm0(payload, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.get_storage_key(ptr0, len0);
+        var ptr2 = ret[0];
+        var len2 = ret[1];
+        if (ret[3]) {
+            ptr2 = 0; len2 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+    }
+}
+
+/**
+ * @param {string} payload
  * @returns {any}
  */
 export function parse_mutation(payload) {
@@ -204,6 +229,20 @@ export function process_sync_frame(payload) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * @param {string} payload
+ * @returns {boolean}
+ */
+export function should_broadcast(payload) {
+    const ptr0 = passStringToWasm0(payload, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.should_broadcast(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0] !== 0;
 }
 
 /**

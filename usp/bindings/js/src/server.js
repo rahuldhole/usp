@@ -1,4 +1,4 @@
-import { process_sync_frame } from '../wasm/usp_wasm.js';
+import { process_sync_frame, get_storage_key, should_broadcast } from '../wasm/usp_wasm.js';
 
 export class USPServer {
   constructor(adapter) {
@@ -11,7 +11,8 @@ export class USPServer {
       this.adapter.onMutation((mutation) => {
         // Prevent echo if we broadcasted it ourselves, although broadcast filters out exact same clientId echoes for the client.
         // Actually, to be safe and simple, we just broadcast. Clients filter their own echoes via clientId anyway.
-        this.broadcast(mutation.session, mutation);
+        // Clients filter their own echoes via clientId
+        this.broadcast(mutation);
       });
     }
   }
@@ -30,35 +31,28 @@ export class USPServer {
       const validatedFrameStr = process_sync_frame(payload);
       const mutation = JSON.parse(validatedFrameStr);
 
-      const { session, op, key, val, action, hlc, clientId, scope = 'global' } = mutation;
-      const userId = req.query.userId;
+      const { op, key, val, action, hlc, clientId, options = {} } = mutation;
+      const channel = options.channel || key;
       
-      // Store userId in mutation so broadcast can filter it
-      mutation.userId = userId;
-
-      // Convert scope + key into internal storage key
-      let storageKey = `${scope}:${key}`;
-      if (scope === 'user') {
-        if (!userId) throw new Error("Cannot mutate user scope without userId");
-        storageKey = `user:${userId}:${key}`;
-      }
+      // Let Rust core determine the definitive storage key
+      const storageKey = get_storage_key(validatedFrameStr);
 
       let success = true;
       if (op === 'SET') {
-        success = await this.adapter.set(session, storageKey, val, hlc);
+        success = await this.adapter.set(channel, storageKey, val, hlc);
       } else if (op === 'DELETE') {
-        success = await this.adapter.delete(session, storageKey, hlc);
+        success = await this.adapter.delete(channel, storageKey, hlc);
       } else if (op === 'EXEC') {
         const handler = this.actionHandlers.get(action);
         if (handler) {
-          await handler(session, this.adapter, mutation);
+          await handler(channel, this.adapter, mutation);
         } else {
           console.warn(`No handler for action: ${action}`);
         }
       }
 
       if (success && (op === 'SET' || op === 'DELETE')) {
-        this.broadcast(session, mutation);
+        this.broadcast(mutation);
       }
 
       res.status(200).json({ status: 'ok', success });
@@ -70,9 +64,9 @@ export class USPServer {
 
   // HTTP GET /subscribe handler (SSE)
   async handleSubscribe(req, res) {
-    const session = req.query.session;
-    if (!session) {
-      return res.status(400).send("Session required");
+    const channels = req.query.channels ? req.query.channels.split(',') : [];
+    if (channels.length === 0) {
+      return res.status(400).send("Channels required");
     }
 
     res.writeHead(200, {
@@ -88,34 +82,15 @@ export class USPServer {
     res.write(': connected\n\n');
 
     // Send full state dump immediately
-    const fullState = await this.adapter.getState(session);
-    
-    // We will extract a potential userId if provided in query for filtering
-    const userId = req.query.userId;
-    
-    for (const [storageKey, val] of Object.entries(fullState)) {
-      // Security: Never transmit private keys
-      if (storageKey.startsWith('private:')) continue;
-      
-      let scope, key;
-      if (storageKey.startsWith('user:')) {
-         const parts = storageKey.split(':');
-         const storageUserId = parts[1];
-         key = parts.slice(2).join(':');
-         
-         // Security: Filter user-specific keys if they don't belong to this connected client
-         if (userId && storageUserId !== userId) continue;
-         scope = 'user'; // Send to client as scope 'user'
-      } else {
-         const parts = storageKey.split(':');
-         scope = parts[0];
-         key = parts.slice(1).join(':');
+    for (const channel of channels) {
+      const fullState = await this.adapter.getState(channel);
+      for (const [storageKey, val] of Object.entries(fullState)) {
+        const key = storageKey.split(':').slice(1).join(':');
+        res.write(`data: ${JSON.stringify({ op: 'SET', key, val, options: { channel, access: 'global' } })}\n\n`);
       }
-
-      res.write(`data: ${JSON.stringify({ op: 'SET', session, scope, key, val })}\n\n`);
     }
 
-    const client = { session, userId, res };
+    const client = { channels, res };
     this.clients.add(client);
 
     req.on('close', () => {
@@ -123,55 +98,59 @@ export class USPServer {
     });
   }
 
-  // Broadcast mutation to connected clients in the same session
-  broadcast(session, mutation) {
-    const { scope = 'global', userId: mutationUserId } = mutation;
+  // Broadcast mutation to connected clients in the same channel
+  broadcast(mutation) {
+    const { options = {} } = mutation;
+    const channel = options.channel || mutation.key;
     
-    // Security: Never broadcast private state
-    if (scope === 'private') return;
+    // Security: Ask Rust core if this mutation should be broadcasted
+    const mutationStr = JSON.stringify(mutation);
+    if (!should_broadcast(mutationStr)) return;
     
-    // Remove internal userId before sending to clients
-    const broadcastMutation = { ...mutation };
-    delete broadcastMutation.userId;
-    
-    const dataStr = `data: ${JSON.stringify(broadcastMutation)}\n\n`;
+    const dataStr = `data: ${JSON.stringify(mutation)}\n\n`;
     for (const client of this.clients) {
-      if (client.session === session) {
-        // Security: Filter user-specific keys
-        if (scope === 'user') {
-          if (!client.userId || client.userId !== mutationUserId) continue;
-        }
+      if (client.channels.includes(channel)) {
         client.res.write(dataStr);
       }
     }
   }
 
-  // DX: Get state for a specific scope without dealing with internal prefixes
-  async getState(session, scope = 'global', userId = null) {
-    const fullState = await this.adapter.getState(session);
-    const result = {};
-    const prefix = scope === 'user' ? `user:${userId}:` : `${scope}:`;
+  // DX: Get state without dealing with internal prefixes
+  async getState(key, options = {}) {
+    const channel = options.channel || key;
+    const fullState = await this.adapter.getState(channel);
     
-    for (const [storageKey, val] of Object.entries(fullState)) {
-      if (storageKey.startsWith(prefix)) {
-        const key = storageKey.substring(prefix.length);
-        result[key] = val;
-      }
-    }
-    return result;
+    const mutationStr = JSON.stringify({ op: 'SET', key, val: null, options });
+    const storageKey = get_storage_key(mutationStr);
+    
+    return fullState[storageKey];
   }
 
-  // DX: Set state for a specific scope and automatically broadcast it
-  async setState(session, scope = 'global', key, val, userId = null) {
-    let storageKey = `${scope}:${key}`;
-    if (scope === 'user') {
-      if (!userId) throw new Error("Cannot mutate user scope without userId");
-      storageKey = `user:${userId}:${key}`;
-    }
+  // DX: Set state for a specific config and automatically broadcast it
+  async setState(key, val, options = {}) {
+    const channel = options.channel || key;
+    
+    const mutation = { op: 'SET', key, val, options };
+    const mutationStr = JSON.stringify(mutation);
+    const storageKey = get_storage_key(mutationStr);
     
     const hlc = Date.now() + "-0"; // Simple HLC for server-originated mutations
-    await this.adapter.set(session, storageKey, val, hlc);
+    await this.adapter.set(channel, storageKey, val, hlc);
     
-    this.broadcast(session, { op: 'SET', session, scope, key, val, hlc, userId });
+    mutation.hlc = hlc;
+    this.broadcast(mutation);
+  }
+
+  // DX: Bind state and return a handle with get/set methods
+  bindState(key, options = {}) {
+    const self = this;
+    return {
+      async get() {
+        return await self.getState(key, options);
+      },
+      async set(val) {
+        return await self.setState(key, val, options);
+      }
+    };
   }
 }

@@ -1,33 +1,38 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub struct StateConfig {
+    pub channel: Option<String>,
+    pub password: Option<String>,
+    pub access: Option<String>,
+    pub mode: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(tag = "op")]
 pub enum Mutation {
     #[serde(rename = "SET")]
     Set {
-        session: String,
-        scope: Option<String>,
         key: String,
         val: Value,
+        options: Option<StateConfig>,
         #[serde(rename = "clientId")]
         client_id: Option<String>,
         hlc: Option<String>,
     },
     #[serde(rename = "DELETE")]
     Delete {
-        session: String,
-        scope: Option<String>,
         key: String,
+        options: Option<StateConfig>,
         #[serde(rename = "clientId")]
         client_id: Option<String>,
         hlc: Option<String>,
     },
     #[serde(rename = "EXEC")]
     Exec {
-        session: String,
-        scope: Option<String>,
         action: String,
+        options: Option<StateConfig>,
         #[serde(rename = "clientId")]
         client_id: Option<String>,
     },
@@ -55,9 +60,31 @@ impl DiffEngine {
     pub fn compute_diff(
         current: &crate::crdt::LwwMap,
         old: &crate::crdt::LwwMap,
-        session: &str,
+        channel: Option<&str>,
     ) -> Vec<Mutation> {
-        current.diff(session, old)
+        current.diff(channel, old)
+    }
+
+    pub fn get_storage_key(mutation: &Mutation) -> String {
+        let (key, options) = match mutation {
+            Mutation::Set { key, options, .. } => (key, options),
+            Mutation::Delete { key, options, .. } => (key, options),
+            Mutation::Exec { options, .. } => return format!("exec"), // Not stored
+        };
+        
+        let channel = options.as_ref().and_then(|o| o.channel.clone()).unwrap_or_else(|| key.clone());
+        format!("{}:{}", channel, key)
+    }
+
+    pub fn should_broadcast(mutation: &Mutation) -> bool {
+        let options = match mutation {
+            Mutation::Set { options, .. } => options,
+            Mutation::Delete { options, .. } => options,
+            Mutation::Exec { options, .. } => options,
+        };
+        
+        let access = options.as_ref().and_then(|o| o.access.clone()).unwrap_or_else(|| "global".to_string());
+        access != "server"
     }
 }
 
@@ -68,15 +95,19 @@ mod tests {
 
     #[test]
     fn test_parse_set_mutation() {
-        let payload = r#"{"op":"SET","session":"session_123","scope":"channel","key":"user.theme","val":"dark","clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
+        let payload = r#"{"op":"SET","key":"user.theme","val":"dark","options":{"channel":"session_123","access":"global"},"clientId":"k7f3x","hlc":"1700000000000-0000-node1"}"#;
         let mutation = DiffEngine::parse_mutation(payload).unwrap();
         assert_eq!(
             mutation,
             Mutation::Set {
-                session: "session_123".to_string(),
-                scope: Some("channel".to_string()),
                 key: "user.theme".to_string(),
                 val: json!("dark"),
+                options: Some(StateConfig {
+                    channel: Some("session_123".to_string()),
+                    access: Some("global".to_string()),
+                    password: None,
+                    mode: None,
+                }),
                 client_id: Some("k7f3x".to_string()),
                 hlc: Some("1700000000000-0000-node1".to_string()),
             }
@@ -85,14 +116,18 @@ mod tests {
 
     #[test]
     fn test_parse_exec_mutation() {
-        let payload = r#"{"op":"EXEC","session":"session_123","scope":"global","action":"trigger_workflow"}"#;
+        let payload = r#"{"op":"EXEC","action":"trigger_workflow","options":{"channel":"session_123"}}"#;
         let mutation = DiffEngine::parse_mutation(payload).unwrap();
         assert_eq!(
             mutation,
             Mutation::Exec {
-                session: "session_123".to_string(),
-                scope: Some("global".to_string()),
                 action: "trigger_workflow".to_string(),
+                options: Some(StateConfig {
+                    channel: Some("session_123".to_string()),
+                    access: None,
+                    password: None,
+                    mode: None,
+                }),
                 client_id: None,
             }
         );

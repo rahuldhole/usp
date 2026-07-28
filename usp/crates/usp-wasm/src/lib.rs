@@ -32,6 +32,22 @@ pub fn process_sync_frame(payload: &str) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn get_storage_key(payload: &str) -> Result<String, JsValue> {
+    match DiffEngine::parse_mutation(payload) {
+        Ok(mutation) => Ok(DiffEngine::get_storage_key(&mutation)),
+        Err(err) => Err(JsValue::from_str(&err.to_string())),
+    }
+}
+
+#[wasm_bindgen]
+pub fn should_broadcast(payload: &str) -> Result<bool, JsValue> {
+    match DiffEngine::parse_mutation(payload) {
+        Ok(mutation) => Ok(DiffEngine::should_broadcast(&mutation)),
+        Err(err) => Err(JsValue::from_str(&err.to_string())),
+    }
+}
+
+#[wasm_bindgen]
 pub struct WasmHlc {
     inner: Hlc,
 }
@@ -115,8 +131,8 @@ impl WasmLwwMap {
     }
 
     #[wasm_bindgen(js_name = "computeDiff")]
-    pub fn compute_diff(&self, session: &str, old_map: &WasmLwwMap) -> Result<JsValue, JsValue> {
-        let deltas = self.inner.diff(session, &old_map.inner);
+    pub fn compute_diff(&self, channel: Option<String>, old_map: &WasmLwwMap) -> Result<JsValue, JsValue> {
+        let deltas = self.inner.diff(channel.as_deref(), &old_map.inner);
         Ok(JsValue::from_str(&serde_json::to_string(&deltas).unwrap()))
     }
 }

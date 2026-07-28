@@ -84,8 +84,12 @@ impl LwwMap {
     }
 
     /// Computes diff mutations from this state relative to an older target state.
-    pub fn diff(&self, session: &str, other: &LwwMap) -> Vec<Mutation> {
+    pub fn diff(&self, channel: Option<&str>, other: &LwwMap) -> Vec<Mutation> {
         let mut deltas = Vec::new();
+        let options = Some(crate::state::StateConfig {
+            channel: channel.map(|s| s.to_string()),
+            ..Default::default()
+        });
         for (key, my_entry) in &self.entries {
             let should_emit = match other.entries.get(key) {
                 Some(other_entry) => my_entry.hlc > other_entry.hlc,
@@ -95,17 +99,15 @@ impl LwwMap {
             if should_emit {
                 match &my_entry.value {
                     Some(val) => deltas.push(Mutation::Set {
-                        session: session.to_string(),
-                        scope: None,
                         key: key.clone(),
                         val: val.clone(),
+                        options: options.clone(),
                         client_id: Some(my_entry.hlc.node_id.clone()),
                         hlc: Some(my_entry.hlc.pack()),
                     }),
                     None => deltas.push(Mutation::Delete {
-                        session: session.to_string(),
-                        scope: None,
                         key: key.clone(),
+                        options: options.clone(),
                         client_id: Some(my_entry.hlc.node_id.clone()),
                         hlc: Some(my_entry.hlc.pack()),
                     }),
@@ -128,10 +130,9 @@ mod tests {
         let hlc_new = Hlc::new("nodeB", 2000, 1);
 
         let set1 = Mutation::Set {
-            session: "s1".to_string(),
-            scope: None,
             key: "user.theme".to_string(),
             val: json!("light"),
+            options: None,
             client_id: Some("nodeA".to_string()),
             hlc: Some(hlc_old.pack()),
         };
@@ -139,10 +140,9 @@ mod tests {
         assert_eq!(map.to_json()["user.theme"], json!("light"));
 
         let set2 = Mutation::Set {
-            session: "s1".to_string(),
-            scope: None,
             key: "user.theme".to_string(),
             val: json!("dark"),
+            options: None,
             client_id: Some("nodeB".to_string()),
             hlc: Some(hlc_new.pack()),
         };
@@ -157,20 +157,18 @@ mod tests {
         let hlc_old = Hlc::new("nodeA", 1000, 1);
 
         let set_newer = Mutation::Set {
-            session: "s1".to_string(),
-            scope: None,
             key: "user.theme".to_string(),
             val: json!("dark"),
+            options: None,
             client_id: Some("nodeB".to_string()),
             hlc: Some(hlc_new.pack()),
         };
         assert!(map.apply_mutation(&set_newer, "server"));
 
         let set_older = Mutation::Set {
-            session: "s1".to_string(),
-            scope: None,
             key: "user.theme".to_string(),
             val: json!("light"),
+            options: None,
             client_id: Some("nodeA".to_string()),
             hlc: Some(hlc_old.pack()),
         };
@@ -186,9 +184,8 @@ mod tests {
 
         // Delete arrives first (maybe key existed on another node)
         let delete = Mutation::Delete {
-            session: "s1".to_string(),
-            scope: None,
             key: "user.theme".to_string(),
+            options: None,
             client_id: Some("nodeB".to_string()),
             hlc: Some(hlc_del.pack()),
         };
@@ -197,10 +194,9 @@ mod tests {
 
         // Out-of-order older SET packet arrives later
         let old_set = Mutation::Set {
-            session: "s1".to_string(),
-            scope: None,
             key: "user.theme".to_string(),
             val: json!("light"),
+            options: None,
             client_id: Some("nodeA".to_string()),
             hlc: Some(hlc_old_set.pack()),
         };

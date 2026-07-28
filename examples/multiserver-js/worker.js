@@ -35,21 +35,21 @@ app.use(async (req, res, next) => {
         // Use the new DX methods that abstract away internal storage keys
         
         // 1. Global State
-        const globalState = await usp.getState('cluster_demo', 'global');
-        const newVal = (globalState['counter'] || 0) + 1;
-        await usp.setState('cluster_demo', 'global', 'counter', newVal);
+        const globalCounter = usp.bindState('counter', { channel: 'cluster_demo' });
+        const newVal = (await globalCounter.get() || 0) + 1;
+        await globalCounter.set(newVal);
         
         // 2. Private State (Server-only)
         const privateSecret = `secret_${Date.now()}`;
-        await usp.setState('cluster_demo', 'private', 'secret', privateSecret);
+        await usp.setState('secret', privateSecret, { channel: 'cluster_demo', access: 'server' });
         
         console.log(`[Worker ${process.env.PORT}] 🟢 Page visited! Incremented global counter to ${newVal}`);
         
         // 3. Node-Local State (Ephemeral, specific to this instance)
         // We bypass Redis adapter and just broadcast to clients on this node
         for (const client of usp.clients) {
-            if (client.session === 'cluster_demo') {
-                client.res.write(`data: ${JSON.stringify({ op: 'SET', session: 'cluster_demo', scope: 'node', key: 'counter', val: newVal })}\n\n`);
+            if (client.channels.includes('cluster_demo')) {
+                client.res.write(`data: ${JSON.stringify({ op: 'SET', key: 'counter', val: newVal, options: { channel: 'cluster_demo', access: 'client' } })}\n\n`);
             }
         }
     }

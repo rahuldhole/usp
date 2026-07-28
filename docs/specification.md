@@ -77,18 +77,20 @@ USP uses a split transport model that works with any HTTP server, including serv
 
 ### Core Protocol Mechanics
 
-#### 1. State Scopes and Namespaces
+#### 1. Granular State Configuration
 
-USP provides granular control over state visibility and persistence through namespace prefixes and domains. State is conceptually partitioned into six distinct scopes:
+USP provides ultimate control over state synchronization through a configuration-first approach, rather than rigid scopes or namespaces. Every state mutation or binding accepts an `options` hash:
 
-1. **Global State (`global:`)**: Shared across all users and channels in the entire application (e.g., total active user count, global announcements).
-2. **Channel / Session State (`channel:` or default)**: Shared only among users subscribed to a specific session or room (e.g., chat room messages, document state).
-3. **User-Specific State (`user:{id}:`)**: Synchronized only to the devices of a specific authenticated user (e.g., user preferences, private notifications).
-4. **Server-Local State (`node:`)**: Ephemeral state maintained by a single server node. Not synchronized to the distributed heap, but pushed to clients connected directly to that specific node (e.g., edge connection counts, server health).
-5. **Private / Secret State (`private:` Domain)**: Exists in the state heap but strictly accessible only by server-side processes. Never pushed to the client (e.g., API keys, auth tokens).
-6. **Ephemeral Client State**: Exists only in the client's local memory and is never synchronized to the server (handled locally by the frontend framework).
+```javascript
+{
+  channel: 'string', // Groups the state logically. Defaults to the variable name. Replaces the concept of a session or a user prefix.
+  password: 'string', // Optional string for securing access to private states.
+  access: 'global | server | client', // Access control: 'global' (everyone), 'server' (private), 'client' (ephemeral/node-local). Defaults to 'global'.
+  mode: 'duplex | simplex-server-to-client | simplex-client-to-server | half-duplex' // Sync directionality. Defaults to 'duplex'.
+}
+```
 
-The state heap enforces these domains using key prefixes within the session object.
+This ensures maximum flexibility without polluting state keys with arbitrary prefixes.
 
 #### 2. Diff-Based State Synchronization
 

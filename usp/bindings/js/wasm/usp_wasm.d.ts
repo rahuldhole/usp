@@ -17,14 +17,18 @@ export class WasmLwwMap {
     free(): void;
     [Symbol.dispose](): void;
     applyMutation(mutation_json: string, default_node_id: string): boolean;
-    computeDiff(session: string, old_map: WasmLwwMap): any;
+    computeDiff(channel: string | null | undefined, old_map: WasmLwwMap): any;
     constructor();
     toJson(): any;
 }
 
+export function get_storage_key(payload: string): string;
+
 export function parse_mutation(payload: string): any;
 
 export function process_sync_frame(payload: string): any;
+
+export function should_broadcast(payload: string): boolean;
 
 export function validate_security(key: string): boolean;
 
@@ -34,8 +38,10 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmhlc_free: (a: number, b: number) => void;
     readonly __wbg_wasmlwwmap_free: (a: number, b: number) => void;
+    readonly get_storage_key: (a: number, b: number) => [number, number, number, number];
     readonly parse_mutation: (a: number, b: number) => [number, number, number];
     readonly process_sync_frame: (a: number, b: number) => [number, number, number];
+    readonly should_broadcast: (a: number, b: number) => [number, number, number];
     readonly validate_security: (a: number, b: number) => number;
     readonly wasmhlc_compare: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly wasmhlc_fromTimestamp: (a: number, b: number, c: number, d: number) => number;

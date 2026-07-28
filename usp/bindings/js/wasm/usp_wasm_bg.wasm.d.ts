@@ -3,8 +3,10 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_wasmhlc_free: (a: number, b: number) => void;
 export const __wbg_wasmlwwmap_free: (a: number, b: number) => void;
+export const get_storage_key: (a: number, b: number) => [number, number, number, number];
 export const parse_mutation: (a: number, b: number) => [number, number, number];
 export const process_sync_frame: (a: number, b: number) => [number, number, number];
+export const should_broadcast: (a: number, b: number) => [number, number, number];
 export const validate_security: (a: number, b: number) => number;
 export const wasmhlc_compare: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const wasmhlc_fromTimestamp: (a: number, b: number, c: number, d: number) => number;

@@ -12,19 +12,22 @@ USP is designed around a single source of truth—the `usp-core`—which defines
 - **`usp-wasm` (Rust/WASM)**: Exposes the core engine to web ecosystems.
 - **`usp-js` (JavaScript)**: A lightweight client/server wrapper around the WASM binaries that provides a native, proxy-based Developer Experience (DX) for Node.js backends and browser frontends.
 
-## State Scopes & Partitioning
+## Granular State Configuration
 
-USP natively understands that not all state is created equal. State is partitioned by `scope`, ensuring that data is only synchronized where it is supposed to go.
+USP natively understands that not all state is created equal. Instead of rigid scopes or prefixes, state is configured dynamically via an options hash.
 
-- **`global`**: Broadcast to all clients in the session.
-- **`channel`**: Broadcast to all clients in a specific channel.
-- **`user`**: Exclusively synchronized between the server and a specific authenticated user's client. Automatically filtered so users cannot view other users' states.
-- **`node`**: Ephemeral state synchronized only between clients connected to a specific backend server instance.
-- **`private`**: Strictly server-side state. Never broadcasted to any client.
+```javascript
+{
+  channel: 'string', // Groups the state logically. Defaults to the variable name.
+  password: 'string', // Optional string for securing access to private states.
+  access: 'global | server | client', // 'global' (everyone), 'server' (private), 'client' (ephemeral). Defaults to 'global'.
+  mode: 'duplex | simplex-server-to-client | simplex-client-to-server | half-duplex' // Sync directionality. Defaults to 'duplex'.
+}
+```
 
 ## Developer Experience (DX)
 
-USP abstracts away the complexity of networking, caching, and state synchronization. You simply mutate state as if it were a local object, and USP handles the rest.
+USP abstracts away the complexity of networking, caching, and state synchronization. You simply define how a variable should behave, and USP handles the rest.
 
 ### Frontend Usage
 
@@ -33,13 +36,13 @@ import { USPClient } from '@rahuldhole/usp';
 
 const client = new USPClient('http://localhost:3000/api/usp?userId=u123');
 
-// Access state proxies by scope
-const globalState = client.useUsp('my_session'); // defaults to 'global'
-const userState = client.useUsp('my_session', { scope: 'user' });
+// Access state variables by defining their synchronization rules
+const globalCounter = client.bindState('counter', { channel: 'my_session' });
+const userTheme = client.bindState('theme', { channel: 'my_session_u123' });
 
 // Mutate naturally. USP intercepts this and syncs it!
-globalState.counter++;
-userState.theme = 'dark';
+globalCounter.value++;
+userTheme.value = 'dark';
 ```
 
 ### Backend Usage (Node.js)
@@ -51,12 +54,16 @@ const adapter = new RedisAdapter('redis://localhost:6379');
 const usp = new USPServer(adapter);
 
 // Read state safely without dealing with internal Redis prefixes
-const globalState = await usp.getState('my_session', 'global');
-const newVal = (globalState['counter'] || 0) + 1;
+const globalCounter = await usp.getState('counter', { channel: 'my_session' });
+const newVal = (globalCounter || 0) + 1;
 
 // Mutate state securely. USP will automatically update Redis and broadcast to the right clients!
-await usp.setState('my_session', 'global', 'counter', newVal);
-await usp.setState('my_session', 'private', 'secret_key', 'super_secret');
+// Bind state for a specific config and automatically broadcast it
+const counter = usp.bindState('counter', { channel: 'my_session' });
+await counter.set(await counter.get() + 1);
+
+// Low-level usage
+await usp.setState('secret_key', 'super_secret', { channel: 'my_session', access: 'server', password: 'my_pwd' });
 ```
 
 ## Running the Demos
