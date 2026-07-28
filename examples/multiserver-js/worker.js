@@ -17,13 +17,35 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize USP with Redis Adapter
-// Assume local redis server on 6379
-const adapter = new RedisAdapter();
+// Configure Redis connection (defaults to local 6379)
+const redisConfig = {
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10)
+};
+const adapter = new RedisAdapter(redisConfig);
 const usp = new USPServer(adapter);
 
 // API Routes
 app.post('/api/usp/sync', (req, res) => usp.handleSync(req, res));
 app.get('/api/usp/subscribe', (req, res) => usp.handleSubscribe(req, res));
+
+// Increment counter on each page visit
+app.use(async (req, res, next) => {
+    if (req.path === '/' || req.path === '/index.html') {
+        const state = await adapter.getState('cluster_demo');
+        const currentVal = state.counter || 0;
+        const newVal = currentVal + 1;
+        
+        const hlc = Date.now() + "-0";
+        await adapter.set('cluster_demo', 'counter', newVal, hlc);
+        
+        console.log(`[Worker ${process.env.PORT}] 🟢 Page visited! Incremented counter to ${newVal}`);
+        
+        // Broadcast to all connected clients on this specific node
+        usp.broadcast('cluster_demo', { op: 'SET', session: 'cluster_demo', key: 'counter', val: newVal, hlc });
+    }
+    next();
+});
 
 // Helper route to identify which server we hit
 app.get('/api/node-id', (req, res) => {

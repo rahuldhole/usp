@@ -1,4 +1,5 @@
-import { USPClient, initWasm } from '/usp-sdk/src/index.js';
+import { USPClient } from '/usp-sdk/src/client.js';
+import initWasm from '/usp-sdk/wasm/usp_wasm.js';
 
 async function main() {
     // 1. Initialize WASM Protocol Engine
