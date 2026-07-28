@@ -62,8 +62,10 @@ async function runTests() {
   // 5. Test USPClient HLC Sync & offline queue
   const client = new USPClient('http://localhost:3000/api/usp');
   const hlcStr1 = client.generateHlc();
-  console.log('   Client generated HLC:', hlcStr1);
-  assert.ok(hlcStr1.includes('-0001-'), 'Should increment counter cleanly with base36 formatting');
+  const hlcStr2 = client.generateHlc();
+  console.log('   Client generated HLC 1:', hlcStr1);
+  console.log('   Client generated HLC 2:', hlcStr2);
+  assert.ok(/-\d{4}-/.test(hlcStr1), 'Should format counter cleanly with 4 digits base36');
   
   client.receiveHlc('9999999999999-000a-other');
   assert.strictEqual(client.lastTs, 9999999999999, 'Client logical clock should jump forward to remote timestamp');

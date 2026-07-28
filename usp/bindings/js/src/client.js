@@ -73,6 +73,10 @@ export class USPClient {
     };
   }
 
+  notifyListeners() {
+    this.listeners.forEach(fn => fn(this.state));
+  }
+
   applyMutation(mutation) {
     if (mutation.op === 'SET') {
       this.state[mutation.key] = mutation.val;
@@ -81,7 +85,7 @@ export class USPClient {
     }
     
     // Trigger re-render listeners
-    this.listeners.forEach(fn => fn(this.state));
+    this.notifyListeners();
   }
 
   async dispatchSync(mutation) {

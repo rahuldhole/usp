@@ -57,9 +57,15 @@ export class USPServer {
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
     });
+    if (res.flushHeaders) {
+      res.flushHeaders();
+    }
+    // Send immediate connection ping comment to prevent reverse-proxy buffering
+    res.write(': connected\n\n');
 
     // Send full state dump immediately
     const fullState = await this.adapter.getState(session);

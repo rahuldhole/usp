@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 // Initialize WASM synchronously for Node environment
 const wasmBuffer = fs.readFileSync(path.join(__dirname, '../../usp/bindings/js/wasm/usp_wasm_bg.wasm'));
-initSync(wasmBuffer);
+initSync({ module: wasmBuffer });
 
 const app = express();
 app.use(cors());

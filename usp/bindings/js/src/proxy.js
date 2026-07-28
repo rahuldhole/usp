@@ -12,6 +12,11 @@ export function createUspProxy(session, target, client) {
 
       obj[prop] = value;
       
+      // Notify local listeners for instantaneous UI rendering (optimistic update)
+      if (typeof client.notifyListeners === 'function') {
+        client.notifyListeners();
+      }
+
       // Dispatch mutation via client
       client.dispatchSync({
         op: 'SET',
@@ -31,6 +36,11 @@ export function createUspProxy(session, target, client) {
 
       delete obj[prop];
       
+      // Notify local listeners
+      if (typeof client.notifyListeners === 'function') {
+        client.notifyListeners();
+      }
+
       client.dispatchSync({
         op: 'DELETE',
         session,
