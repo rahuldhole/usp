@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize WASM synchronously
-const wasmBuffer = fs.readFileSync(path.join(__dirname, '../../usp/bindings/js/wasm/usp_wasm_bg.wasm'));
+const wasmBuffer = fs.readFileSync(path.join(__dirname, '../../usp/bindings/ts/wasm/usp_wasm_bg.wasm'));
 initSync({ module: wasmBuffer });
 
 const app = express();
@@ -63,7 +63,7 @@ app.get('/api/node-id', (req, res) => {
 
 // Static files
 app.use(express.static('public'));
-app.use('/usp-sdk', express.static(path.join(__dirname, '../../usp/bindings/js')));
+app.use('/usp-sdk', express.static(path.join(__dirname, '../../usp/bindings/ts')));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

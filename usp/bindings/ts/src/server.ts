@@ -1,7 +1,11 @@
 import { process_sync_frame, get_storage_key, should_broadcast } from '../wasm/usp_wasm.js';
 
 export class USPServer {
-  constructor(adapter) {
+  adapter: any;
+  clients: Set<any>;
+  actionHandlers: Map<string, any>;
+
+  constructor(adapter: any) {
     this.adapter = adapter;
     this.clients = new Set();
     this.actionHandlers = new Map();
@@ -23,7 +27,7 @@ export class USPServer {
   }
 
   // HTTP POST /sync handler
-  async handleSync(req, res) {
+  async handleSync(req: any, res: any) {
     try {
       const payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       
@@ -63,7 +67,7 @@ export class USPServer {
   }
 
   // HTTP GET /subscribe handler (SSE)
-  async handleSubscribe(req, res) {
+  async handleSubscribe(req: any, res: any) {
     const channels = req.query.channels ? req.query.channels.split(',') : [];
     if (channels.length === 0) {
       return res.status(400).send("Channels required");
@@ -99,7 +103,7 @@ export class USPServer {
   }
 
   // Broadcast mutation to connected clients in the same channel
-  broadcast(mutation) {
+  broadcast(mutation: any) {
     const { options = {} } = mutation;
     const channel = options.channel || mutation.key;
     
@@ -116,7 +120,7 @@ export class USPServer {
   }
 
   // DX: Get state without dealing with internal prefixes
-  async getState(key, options = {}) {
+  async getState(key: string, options: any = {}) {
     const channel = options.channel || key;
     const fullState = await this.adapter.getState(channel);
     
@@ -127,10 +131,10 @@ export class USPServer {
   }
 
   // DX: Set state for a specific config and automatically broadcast it
-  async setState(key, val, options = {}) {
+  async setState(key: string, val: any, options: any = {}) {
     const channel = options.channel || key;
     
-    const mutation = { op: 'SET', key, val, options };
+    const mutation: any = { op: 'SET', key, val, options };
     const mutationStr = JSON.stringify(mutation);
     const storageKey = get_storage_key(mutationStr);
     
@@ -142,7 +146,7 @@ export class USPServer {
   }
 
   // DX: Bind state and return a handle with get/set methods
-  bindState(key, options = {}) {
+  bindState(key: string, options: any = {}) {
     const self = this;
     return {
       async get() {

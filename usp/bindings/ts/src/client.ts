@@ -2,7 +2,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { createUspProxy } from './proxy.js';
 
 export class USPClient {
-  constructor(endpoint) {
+  endpoint: string;
+  clientId: string;
+  lastTs: number;
+  hlcCounter: number;
+  state: any;
+  listeners: Set<any>;
+  eventSource: any;
+  offlineQueue: any[];
+  isOnline: boolean;
+  channels: Set<string>;
+
+  constructor(endpoint: string) {
     this.endpoint = endpoint;
     this.clientId = uuidv4();
     this.lastTs = Date.now();
@@ -31,7 +42,7 @@ export class USPClient {
     return `${this.lastTs}-${countStr}-${this.clientId.substring(0, 5)}`;
   }
 
-  receiveHlc(remoteHlc) {
+  receiveHlc(remoteHlc: string) {
     if (!remoteHlc || typeof remoteHlc !== 'string') return;
     const parts = remoteHlc.split('-');
     if (parts.length < 2) return;
@@ -52,7 +63,7 @@ export class USPClient {
     }
   }
 
-  connect(channels) {
+  connect(channels: string[]) {
     let subscribeUrl = this.endpoint;
     if (subscribeUrl.includes('?')) {
       subscribeUrl = subscribeUrl.replace('?', '/subscribe?');
@@ -85,7 +96,7 @@ export class USPClient {
     this.listeners.forEach(fn => fn(this.state));
   }
 
-  applyMutation(mutation) {
+  applyMutation(mutation: any) {
     const channel = mutation.options?.channel || mutation.key;
     if (!this.state[channel]) this.state[channel] = {};
 
@@ -99,7 +110,7 @@ export class USPClient {
     this.notifyListeners();
   }
 
-  async dispatchSync(mutation) {
+  async dispatchSync(mutation: any) {
     mutation.clientId = this.clientId;
     if (mutation.op === 'SET' || mutation.op === 'DELETE') {
       mutation.hlc = this.generateHlc();
@@ -113,7 +124,7 @@ export class USPClient {
     this._sendPost(mutation);
   }
 
-  async _sendPost(mutation) {
+  async _sendPost(mutation: any) {
     try {
       let syncUrl = this.endpoint;
       if (syncUrl.includes('?')) {
@@ -142,7 +153,7 @@ export class USPClient {
     }
   }
 
-  bindState(key, options = {}) {
+  bindState(key: string, options: any = {}) {
     const channel = options.channel || key;
     if (!this.channels) this.channels = new Set();
     this.channels.add(channel);
@@ -169,7 +180,7 @@ export class USPClient {
     };
   }
 
-  subscribe(fn) {
+  subscribe(fn: any) {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }

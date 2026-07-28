@@ -1,7 +1,12 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 
 export class RedisAdapter {
-  constructor(redisOptions = {}) {
+  storeClient: any;
+  subClient: any;
+  pubClient: any;
+  mutationCallbacks: Set<any>;
+
+  constructor(redisOptions: any = {}) {
     this.storeClient = new Redis(redisOptions);
     this.subClient = new Redis(redisOptions);
     this.pubClient = new Redis(redisOptions);
@@ -27,12 +32,12 @@ export class RedisAdapter {
     });
   }
 
-  onMutation(cb) {
+  onMutation(cb: any) {
     this.mutationCallbacks.add(cb);
     return () => this.mutationCallbacks.delete(cb);
   }
 
-  async get(session, key) {
+  async get(session: string, key: string) {
     const storeKey = `usp:${session}`;
     const raw = await this.storeClient.hget(storeKey, key);
     if (!raw) return undefined;
@@ -42,7 +47,7 @@ export class RedisAdapter {
     return entry;
   }
 
-  async set(session, key, val, hlc) {
+  async set(session: string, key: string, val: any, hlc: string) {
     const storeKey = `usp:${session}`;
     
     // Check existing HLC to prevent out-of-order
@@ -58,13 +63,13 @@ export class RedisAdapter {
     await this.storeClient.hset(storeKey, key, JSON.stringify(entry));
     
     // Publish to cluster
-    const mutation = { op: 'SET', session, key, val, hlc };
+    const mutation: any = { op: 'SET', session, key, val, hlc };
     await this.pubClient.publish('usp:mutations', JSON.stringify(mutation));
     
     return true;
   }
 
-  async delete(session, key, hlc) {
+  async delete(session: string, key: string, hlc: string) {
     const storeKey = `usp:${session}`;
     
     // Check existing HLC
@@ -87,12 +92,12 @@ export class RedisAdapter {
     return true;
   }
 
-  async getState(session) {
+  async getState(session: string) {
     const storeKey = `usp:${session}`;
     const allRaw = await this.storeClient.hgetall(storeKey);
     const state = {};
     
-    for (const [key, raw] of Object.entries(allRaw)) {
+    for (const [key, raw] of Object.entries(allRaw as Record<string, string>)) {
       const entry = JSON.parse(raw);
       if (!entry.deleted && entry.val !== undefined) {
         state[key] = entry.val;

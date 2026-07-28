@@ -2,19 +2,27 @@
   "name": "@rahuldhole/usp",
   "version": "0.1.0",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
-    "src",
+    "dist",
     "wasm"
   ],
   "exports": {
-    ".": "./src/index.js",
+    ".": "./dist/index.js",
     "./wasm": "./wasm/usp_wasm.js"
   },
   "scripts": {
+    "build": "tsc",
     "test": "node test.js"
   },
   "dependencies": {
     "ioredis": "^5.11.1",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.7",
+    "@types/uuid": "^9.0.8"
   }
 }

@@ -1,15 +1,17 @@
 export class MemoryAdapter {
+  store: Map<string, any>;
+
   constructor() {
     this.store = new Map();
   }
 
-  async get(session, key) {
+  async get(session: string, key: string) {
     const entry = this.store.get(`${session}:${key}`);
     if (!entry || entry.deleted) return undefined;
     return entry;
   }
 
-  async set(session, key, val, hlc) {
+  async set(session: string, key: string, val: any, hlc: string) {
     const storeKey = `${session}:${key}`;
     const existing = this.store.get(storeKey);
     
@@ -21,7 +23,7 @@ export class MemoryAdapter {
     return true;
   }
 
-  async delete(session, key, hlc) {
+  async delete(session: string, key: string, hlc: string) {
     const storeKey = `${session}:${key}`;
     const existing = this.store.get(storeKey);
     
@@ -34,8 +36,8 @@ export class MemoryAdapter {
     return true;
   }
 
-  async getState(session) {
-    const state = {};
+  async getState(session: string) {
+    const state: any = {};
     for (const [k, v] of this.store.entries()) {
       if (k.startsWith(`${session}:`) && !v.deleted && v.val !== undefined) {
         state[k.substring(session.length + 1)] = v.val;

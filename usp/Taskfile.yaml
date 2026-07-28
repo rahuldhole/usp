@@ -10,4 +10,10 @@ tasks:
     desc: "B.2: Build WebAssembly bindings"
     dir: crates/usp-wasm
     cmds:
-      - wasm-pack build --target web --out-dir ../../bindings/js/wasm
+      - wasm-pack build --target web --out-dir ../../bindings/ts/wasm
+
+  build:ts:
+    desc: "B.3: Build TypeScript bindings"
+    dir: bindings/ts
+    cmds:
+      - pnpm run build

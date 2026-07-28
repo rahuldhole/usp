@@ -1,4 +1,4 @@
-import { USPClient } from '/usp-sdk/src/client.js';
+import { USPClient } from '/usp-sdk/dist/client.js';
 import initWasm from '/usp-sdk/wasm/usp_wasm.js';
 
 async function main() {

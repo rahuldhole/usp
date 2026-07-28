@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@rahuldhole/usp':
-        specifier: file:../../usp/bindings/js
-        version: file:../../usp/bindings/js
+        specifier: file:../../usp/bindings/ts
+        version: file:../../usp/bindings/ts
       cors:
         specifier: ^2.8.6
         version: 2.8.6
@@ -29,8 +29,8 @@ packages:
   '@ioredis/commands@1.10.0':
     resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
 
-  '@rahuldhole/usp@file:../../usp/bindings/js':
-    resolution: {directory: ../../usp/bindings/js, type: directory}
+  '@rahuldhole/usp@file:../../usp/bindings/ts':
+    resolution: {directory: ../../usp/bindings/ts, type: directory}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -349,7 +349,7 @@ snapshots:
 
   '@ioredis/commands@1.10.0': {}
 
-  '@rahuldhole/usp@file:../../usp/bindings/js':
+  '@rahuldhole/usp@file:../../usp/bindings/ts':
     dependencies:
       ioredis: 5.11.1
       uuid: 9.0.1
