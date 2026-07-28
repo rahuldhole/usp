@@ -20,6 +20,8 @@ async function main() {
     client.subscribe((latestState) => {
         listEl.innerHTML = '';
         Object.entries(latestState).forEach(([id, todo]) => {
+            if (id === 'visit_counter') return; // Skip counter state
+
             const li = document.createElement('li');
             
             const span = document.createElement('span');
@@ -72,6 +74,26 @@ async function main() {
             session: 'todos',
             action: 'clearCompleted'
         });
+    };
+
+    // --- COUNTER EXAMPLE ---
+    
+    // Use the existing 'state' (which is the 'todos' session proxy)
+    const counterValEl = document.getElementById('counter-val');
+    const incBtn = document.getElementById('inc-btn');
+    const decBtn = document.getElementById('dec-btn');
+
+    // We can piggyback on the same render loop or add another subscriber
+    client.subscribe((latestState) => {
+        counterValEl.textContent = latestState.visit_counter ?? 0;
+    });
+
+    incBtn.onclick = () => {
+        state.visit_counter = (state.visit_counter || 0) + 1;
+    };
+    
+    decBtn.onclick = () => {
+        state.visit_counter = (state.visit_counter || 0) - 1;
     };
 }
 

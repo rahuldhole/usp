@@ -1,18 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>USP Todo JS Example</title>
     <style>
-        body { font-family: sans-serif; max-width: 500px; margin: 40px auto; }
-        ul { list-style: none; padding: 0; }
-        li { padding: 8px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-        .completed { text-decoration: line-through; color: #888; }
-        button { cursor: pointer; }
-        .danger { color: red; }
+        body {
+            font-family: sans-serif;
+            max-width: 500px;
+            margin: 40px auto;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .danger {
+            color: red;
+        }
     </style>
 </head>
+
 <body>
     <script type="importmap">
       {
@@ -21,21 +48,31 @@
         }
       }
     </script>
-    
+
     <h1>Todo App (USP Realtime Sync)</h1>
-    
+
     <div>
         <input type="text" id="todo-input" placeholder="What needs to be done?">
         <button id="add-btn">Add Todo</button>
     </div>
 
     <ul id="todo-list"></ul>
-    
+
     <div style="margin-top: 20px;">
         <button id="clear-btn">Clear Completed (Server Action)</button>
+    </div>
+
+    <hr style="margin: 40px 0;">
+
+    <h2>Visit Counter (Server-Driven)</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="dec-btn" style="font-size: 1.5rem; padding: 5px 15px;">-</button>
+        <span id="counter-val" style="font-size: 2rem; font-weight: bold;">0</span>
+        <button id="inc-btn" style="font-size: 1.5rem; padding: 5px 15px;">+</button>
     </div>
 
     <!-- We import our frontend app as a module -->
     <script type="module" src="./app.js"></script>
 </body>
+
 </html>

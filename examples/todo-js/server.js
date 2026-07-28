@@ -36,6 +36,26 @@ usp.registerAction("clearCompleted", async (session, db, mutation) => {
 app.post('/api/usp/sync', (req, res) => usp.handleSync(req, res));
 app.get('/api/usp/subscribe', (req, res) => usp.handleSubscribe(req, res));
 
+// Seed the initial value for our simple visit counter in the 'todos' session
+adapter.set('todos', 'visit_counter', 0, "0000000000000-0");
+
+// Increment visit counter on each page visit
+app.use(async (req, res, next) => {
+    if (req.path === '/' || req.path === '/index.html') {
+        const state = await adapter.getState('todos');
+        const currentVal = state.visit_counter || 0;
+        const newVal = currentVal + 1;
+        
+        // Use a simple timestamp string for HLC
+        const hlc = Date.now() + "-0";
+        await adapter.set('todos', 'visit_counter', newVal, hlc);
+        
+        // Broadcast to all connected clients
+        usp.broadcast('todos', { op: 'SET', session: 'todos', key: 'visit_counter', val: newVal, hlc });
+    }
+    next();
+});
+
 // Static files
 app.use(express.static('public'));
 
