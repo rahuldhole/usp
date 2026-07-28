@@ -9,6 +9,10 @@ includes:
     taskfile: ./examples/todo-js/Taskfile.yaml
     dir: ./examples/todo-js
 
+  multiserver:
+    taskfile: ./examples/multiserver-js/Taskfile.yaml
+    dir: ./examples/multiserver-js
+
 tasks:
   default:
     cmds: [ "task -l" ]

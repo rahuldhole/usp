@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USP Multiserver Scaling Demo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; line-height: 1.6; }
+        .node-badge { background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .box { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        button { cursor: pointer; padding: 10px 20px; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+      {
+        "imports": {
+          "uuid": "https://unpkg.com/uuid@9.0.1/dist/esm-browser/index.js"
+        }
+      }
+    </script>
+    
+    <h1>🌐 Multiserver USP (Redis)</h1>
+    <p>This demo spins up 3 backend nodes and load-balances API traffic across them. Unified State Protocol syncs state instantly across all nodes via Redis Pub/Sub.</p>
+    
+    <div class="box" style="background: #f9f9f9;">
+        <p>You are currently talking to Node: <span id="node-id" class="node-badge">Loading...</span></p>
+        <p><small>(Refresh the page to see this hit different load-balanced backend ports)</small></p>
+    </div>
+
+    <div class="box">
+        <h2>Global Distributed Counter</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button id="dec-btn">-</button>
+            <span id="counter-val" style="font-size: 3rem; font-weight: bold; margin: 0 20px;">0</span>
+            <button id="inc-btn">+</button>
+        </div>
+        <p><small>Open this page in a second tab. Clicking +/- here might hit Node 3001, but the other tab (connected to Node 3002) will still update instantly!</small></p>
+    </div>
+
+    <!-- We import our frontend app as a module -->
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

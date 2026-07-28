@@ -5,6 +5,15 @@ export class USPServer {
     this.adapter = adapter;
     this.clients = new Set();
     this.actionHandlers = new Map();
+
+    // Bind to adapter's cluster mutation events (e.g. for Redis Pub/Sub multi-node sync)
+    if (typeof this.adapter.onMutation === 'function') {
+      this.adapter.onMutation((mutation) => {
+        // Prevent echo if we broadcasted it ourselves, although broadcast filters out exact same clientId echoes for the client.
+        // Actually, to be safe and simple, we just broadcast. Clients filter their own echoes via clientId anyway.
+        this.broadcast(mutation.session, mutation);
+      });
+    }
   }
 
   // Register an action handler for EXEC mutations

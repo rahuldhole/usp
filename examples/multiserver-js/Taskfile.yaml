@@ -1,0 +1,12 @@
+version: '3'
+
+tasks:
+  install:
+    desc: "D.1: Install dependencies for multiserver-js example"
+    cmds:
+      - pnpm install
+
+  start:
+    desc: "D.2: Start multiserver-js cluster"
+    cmds:
+      - pnpm start
