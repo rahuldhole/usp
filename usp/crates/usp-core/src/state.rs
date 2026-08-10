@@ -18,24 +18,29 @@ pub enum Mutation {
     Set {
         key: String,
         val: Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
         options: Option<StateConfig>,
-        #[serde(rename = "clientId")]
+        #[serde(rename = "clientId", skip_serializing_if = "Option::is_none")]
         client_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         hlc: Option<String>,
     },
     #[serde(rename = "DELETE")]
     Delete {
         key: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         options: Option<StateConfig>,
-        #[serde(rename = "clientId")]
+        #[serde(rename = "clientId", skip_serializing_if = "Option::is_none")]
         client_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         hlc: Option<String>,
     },
     #[serde(rename = "EXEC")]
     Exec {
         action: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         options: Option<StateConfig>,
-        #[serde(rename = "clientId")]
+        #[serde(rename = "clientId", skip_serializing_if = "Option::is_none")]
         client_id: Option<String>,
     },
 }

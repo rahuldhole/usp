@@ -36,7 +36,8 @@ export class USPServer {
       const validatedFrameStr = process_sync_frame(payload);
       const mutation = JSON.parse(validatedFrameStr);
 
-      const { op, key, val, action, hlc, clientId, options = {} } = mutation;
+      const { op, key, val, action, hlc, clientId, options: rawOptions } = mutation;
+      const options = rawOptions || {};
       const channel = options.channel || key;
       
       // Let Rust core determine the definitive storage key
@@ -110,7 +111,8 @@ export class USPServer {
 
   // Broadcast mutation to connected clients in the same channel
   broadcast(mutation: any) {
-    const { options = {} } = mutation;
+    const { options: rawOptions } = mutation;
+    const options = rawOptions || {};
     const channel = options.channel || mutation.key;
     
     // Security: Ask Rust core if this mutation should be broadcasted

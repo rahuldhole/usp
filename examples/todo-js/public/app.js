@@ -18,7 +18,8 @@ async function main() {
     const clearBtn = document.getElementById('clear-btn');
 
     // Render loop triggered on state changes
-    client.subscribe((latestState) => {
+    client.subscribe((globalState) => {
+        const latestState = globalState.todos || {};
         listEl.innerHTML = '';
         Object.entries(latestState).forEach(([id, todo]) => {
             if (id === 'visit_counter' || id === 'global_notice') return; // Skip counter and notice state
@@ -72,7 +73,7 @@ async function main() {
     clearBtn.onclick = () => {
         client.dispatchSync({
             op: 'EXEC',
-            session: 'todos',
+            options: { channel: 'todos' },
             action: 'clearCompleted'
         });
     };
@@ -85,7 +86,8 @@ async function main() {
     const decBtn = document.getElementById('dec-btn');
 
     // We can piggyback on the same render loop or add another subscriber
-    client.subscribe((latestState) => {
+    client.subscribe((globalState) => {
+        const latestState = globalState.todos || {};
         counterValEl.textContent = latestState.visit_counter ?? 0;
     });
 
@@ -104,7 +106,8 @@ async function main() {
     const noticeBtn = document.getElementById('notice-btn');
     const noticeErrorEl = document.getElementById('notice-error');
 
-    client.subscribe((latestState) => {
+    client.subscribe((globalState) => {
+        const latestState = globalState.todos || {};
         if (latestState.global_notice !== undefined) {
             noticeValEl.textContent = latestState.global_notice;
         }
