@@ -27,7 +27,7 @@ usp.registerAction("clearCompleted", async (session, db, mutation) => {
     for (const [key, val] of Object.entries(state)) {
         if (val.completed) {
             await db.delete(session, key, mutation.hlc);
-            usp.broadcast(session, { op: 'DELETE', session, key });
+            usp.broadcast({ op: 'DELETE', session, key, hlc: mutation.hlc, options: { channel: session } });
         }
     }
 });
@@ -52,7 +52,7 @@ app.use(async (req, res, next) => {
         await adapter.set('todos', 'visit_counter', newVal, hlc);
         
         // Broadcast to all connected clients
-        usp.broadcast('todos', { op: 'SET', session: 'todos', key: 'visit_counter', val: newVal, hlc });
+        usp.broadcast({ op: 'SET', session: 'todos', key: 'visit_counter', val: newVal, hlc, options: { channel: 'todos' } });
     }
     next();
 });
