@@ -2,6 +2,7 @@ version: '3'
 
 includes:
   usp:
+    deps: ["install:deps"]
     taskfile: ./usp/Taskfile.yaml
     dir: ./usp
 
