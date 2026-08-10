@@ -10,7 +10,9 @@
   ],
   "exports": {
     ".": "./dist/index.js",
-    "./wasm": "./wasm/usp_wasm.js"
+    "./server": "./dist/server_entry.js",
+    "./wasm": "./wasm/usp_wasm.js",
+    "./wasm/usp_wasm_bg.wasm": "./wasm/usp_wasm_bg.wasm"
   },
   "scripts": {
     "build": "tsc",

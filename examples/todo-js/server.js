@@ -36,9 +36,12 @@ usp.registerAction("clearCompleted", async (session, db, mutation) => {
 app.post('/api/usp/sync', (req, res) => usp.handleSync(req, res));
 app.get('/api/usp/subscribe', (req, res) => usp.handleSubscribe(req, res));
 
-// Seed initial values in the 'todos' session
-adapter.set('todos', 'visit_counter', 0, "0000000000000-0");
-adapter.set('todos', 'global_notice', 'Welcome! Max 35 bytes.', "0000000000000-0");
+// Seed initial values in the 'todos' session using bindState
+const visitCounter = usp.bindState('visit_counter', { channel: 'todos' });
+const globalNotice = usp.bindState('global_notice', { channel: 'todos' });
+
+await visitCounter.set(0);
+await globalNotice.set('Welcome! Max 35 bytes.');
 
 // Increment visit counter on each page visit
 app.use(async (req, res, next) => {

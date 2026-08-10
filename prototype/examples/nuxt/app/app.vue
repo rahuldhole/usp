@@ -1,6 +1,6 @@
 <template>
   <div class="card">
-    <h1>USP + Nuxt 3</h1>
+    <h1>USP + Nuxt</h1>
     <p>State magically syncs across Nuxt clients!</p>
     
     <div>
