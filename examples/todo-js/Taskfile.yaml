@@ -2,11 +2,14 @@ version: '3'
 
 tasks:
   install:
-    desc: "C.1: Install dependencies for todo-js example"
+    desc: "C.1: Install dependencies for todo-js example (use -f to force install)"
+    status:
+      - test -d node_modules
     cmds:
       - pnpm install
 
   start:
     desc: "C.2: Start todo-js example server"
+    deps: [install]
     cmds:
       - pnpm start

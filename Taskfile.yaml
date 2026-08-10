@@ -17,6 +17,18 @@ tasks:
   default:
     cmds: [ "task -l" ]
 
+  install:deps:
+    desc: "A.0: Install dependencies (use -f to force install)"
+    status:
+      - docker compose version
+      - test -x $HOME/.cargo/bin/rustc
+      - test -x $HOME/.cargo/bin/wasm-pack
+    cmds:
+      - sudo apt-get update
+      - sudo apt-get install -y docker-compose-plugin docker-compose curl
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
   up:
     desc: "A.1: Start infrastructure (Redis)"
     cmds:

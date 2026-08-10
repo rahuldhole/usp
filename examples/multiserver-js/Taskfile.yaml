@@ -2,11 +2,14 @@ version: '3'
 
 tasks:
   install:
-    desc: "D.1: Install dependencies for multiserver-js example"
+    desc: "D.1: Install dependencies for multiserver-js example (use -f to force install)"
+    status:
+      - test -d node_modules
     cmds:
       - pnpm install
 
   start:
     desc: "D.2: Start multiserver-js cluster"
+    deps: [install]
     cmds:
       - pnpm start

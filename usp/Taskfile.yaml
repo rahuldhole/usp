@@ -1,19 +1,34 @@
 version: '3'
 
+env:
+  PATH: "$HOME/.cargo/bin:{{.PATH}}"
+
 tasks:
+
+  install:
+    desc: "B.0: Install dependencies (use -f to force install)"
+    dir: bindings/ts
+    status:
+      - test -d node_modules
+    cmds:
+      - pnpm install
+
   test:
     desc: "B.1: Run tests for Rust USP core"
+    deps: [install]
     cmds:
       - cargo test
 
   build:wasm:
     desc: "B.2: Build WebAssembly bindings"
     dir: crates/usp-wasm
+    deps: [install]
     cmds:
       - wasm-pack build --target web --out-dir ../../bindings/ts/wasm
 
   build:ts:
     desc: "B.3: Build TypeScript bindings"
     dir: bindings/ts
+    deps: [install, build:wasm]
     cmds:
       - pnpm run build
